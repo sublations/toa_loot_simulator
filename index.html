@@ -2,12 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Tombs of Amascut — Loot Simulator</title>
-<meta name="description" content="A scientifically accurate Tombs of Amascut (OSRS) loot, points & purple-chance Monte-Carlo simulator." />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="color-scheme" content="dark" />
+<meta name="theme-color" content="#2c2619" />
+<title>Tombs of Amascut Loot Simulator</title>
+<meta name="description" content="Simulate Tombs of Amascut loot, points and purple chances over a single raid or thousands, using the OSRS Wiki's drop maths." />
 <style>
 /* ============================================================================
-   OSRS WEBFONTS (RuneStar, served via jsDelivr) — graceful fallback to pixel/sans
+   OSRS WEBFONTS (RuneStar, served via jsDelivr) - graceful fallback to pixel/sans
    ========================================================================== */
 @font-face{font-family:'RuneScape';src:url('https://cdn.jsdelivr.net/gh/RuneStar/fonts@master/RuneScape-Plain-12.ttf') format('truetype');font-weight:normal;font-display:swap}
 @font-face{font-family:'RuneScapeBold';src:url('https://cdn.jsdelivr.net/gh/RuneStar/fonts@master/RuneScape-Bold-12.ttf') format('truetype');font-weight:normal;font-display:swap}
@@ -32,10 +34,10 @@
   --rs-yellow:#ffd34e;
   --rs-yellow-pure:#ffff00;
   --rs-white:#f0e6d2;
-  --rs-dim:#c2b48d;
-  --rs-faint:#9a8a64;
-  --rs-green:#3ceb55;
-  --rs-red:#ff4444;
+  --rs-dim:#cdbf98;
+  --rs-faint:#b3a277;
+  --rs-green:#5bf06f;
+  --rs-red:#ff5a5a;
   --rs-cyan:#33e0e0;
   --rs-purple:#d264ff;
   --rs-purple-lo:#9b30e0;
@@ -62,6 +64,19 @@ body{
 }
 /* RuneScape-style raised text helper */
 .rs-shadow{text-shadow:1px 1px 0 #000}
+
+/* ----- Accessibility helpers ----- */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.skip-link{position:absolute;left:8px;top:-48px;z-index:200;background:var(--rs-yellow);color:#241a0b;
+  font-family:var(--font-bold);padding:8px 14px;border-radius:3px;border:1px solid var(--rs-border);transition:top .12s}
+.skip-link:focus{top:8px}
+/* Visible keyboard focus on every interactive element */
+a:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,
+[role="tab"]:focus-visible,[role="checkbox"]:focus-visible,.inv:focus-visible,.tile:focus-visible{
+  outline:2px solid var(--rs-yellow);outline-offset:2px;border-radius:2px}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+}
 ::-webkit-scrollbar{width:14px;height:14px}
 ::-webkit-scrollbar-track{background:#161209;border-left:1px solid #000}
 ::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--rs-stone-hi),var(--rs-stone-lo));border:2px solid #161209;border-radius:2px}
@@ -223,12 +238,22 @@ input[type=checkbox]{width:auto;accent-color:#a07a2a;vertical-align:-2px;transfo
 .inv-cat{margin-bottom:11px}
 .inv-cat-h{font-family:var(--font-sm);font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--rs-faint);margin:0 0 6px;display:flex;align-items:center;gap:7px}
 .inv-cat-h::after{content:"";flex:1;height:2px;background:linear-gradient(90deg,var(--rs-bevel-lo),transparent)}
-.inv{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:3px;cursor:pointer;border:1px solid transparent;transition:.1s;margin-bottom:2px}
+.inv{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:3px;cursor:pointer;border:1px solid transparent;transition:.1s;margin-bottom:2px}
 .inv:hover{background:rgba(255,152,31,.06)}
 .inv.on{background:linear-gradient(90deg,rgba(255,152,31,.12),transparent);border-color:var(--rs-bevel-lo)}
-.inv .box{width:18px;height:18px;flex:0 0 auto;border-radius:2px;border:1px solid var(--rs-border);background:#15110a;display:grid;place-items:center;font-size:13px;color:transparent;box-shadow:inset 1px 1px 0 #000;transition:.1s}
-.inv.on .box{background:linear-gradient(180deg,var(--rs-yellow),#c8941f);color:#241a0b}
-.inv .nm{flex:1;font-size:14px;color:var(--rs-white);line-height:1.2}
+.inv .invico{width:30px;height:30px;flex:0 0 auto;display:grid;place-items:center;position:relative;
+  border:1px solid var(--rs-border);border-radius:3px;background:linear-gradient(180deg,#241f14,#16110a);
+  box-shadow:inset 1px 1px 0 rgba(110,97,73,.25),inset -1px -1px 0 #000;
+  filter:grayscale(.75) brightness(.62);transition:filter .12s}
+.inv.on .invico{filter:none}
+.inv .invico .ic{width:24px;height:24px}
+.inv .invico .ic img{max-width:24px;max-height:24px;image-rendering:auto}
+.inv .invico .fallback{width:22px;height:22px;font-size:14px;border:none;background:none}
+.inv.on .invico::after{content:"✓";position:absolute;right:-5px;bottom:-5px;width:15px;height:15px;font-size:11px;
+  background:linear-gradient(180deg,var(--rs-yellow),#c8941f);color:#241a0b;border:1px solid var(--rs-border);
+  border-radius:50%;display:grid;place-items:center;font-family:var(--font-bold)}
+.inv .nm{flex:1;font-size:14px;color:var(--rs-dim);line-height:1.2}
+.inv.on .nm{color:var(--rs-white)}
 .inv .nm small{display:block;color:var(--rs-faint);font-size:12px;font-family:var(--font-sm)}
 .inv .pts{font-family:var(--font-bold);font-size:14px;color:var(--rs-green);min-width:34px;text-align:right;font-variant-numeric:tabular-nums}
 
@@ -378,48 +403,89 @@ canvas{display:block;width:100%}
   box-shadow:inset 1px 1px 0 rgba(110,97,73,.4),0 6px 18px rgba(0,0,0,.5);transition:transform .28s cubic-bezier(.2,1.4,.4,1);z-index:100}
 .toast.show{transform:translateX(-50%) translateY(0)}
 .footer{text-align:center;padding:22px;color:var(--rs-faint);font-size:13px;line-height:1.6;font-family:var(--font-sm)}
+
+/* ============================================================================
+   RESPONSIVE / MOBILE
+   ========================================================================== */
+/* Let wide stat tables scroll sideways instead of squashing on narrow screens */
+.chart-card{overflow-x:auto;-webkit-overflow-scrolling:touch}
+@media (max-width:560px){ .utable{min-width:430px} }
+
+@media (max-width:760px){
+  header.app{flex-wrap:wrap;gap:10px 14px;padding:9px 13px}
+  .brand h1{font-size:17px;white-space:normal}
+  .brand .sub{white-space:normal}
+  header.app .spacer{display:none}
+  .seedbox{flex:1 1 100%;justify-content:flex-start}
+  .seedbox input{flex:1}
+  .wrap{padding:11px;gap:12px}
+  .panel .body{padding:12px}
+  .runbar{flex-wrap:wrap}
+  .runbar .n{flex:1 1 100%}
+  .runbar .rs-btn,.runbar .btn-primary{flex:1}
+  .tabs{flex-wrap:wrap}
+  .tabs button{flex:1 1 40%;font-size:14px}
+  .rl-readout .big{font-size:32px}
+  .stat .v{font-size:23px}
+  /* finger-friendly hit areas */
+  .inv{padding:9px 8px}
+  .preset{padding:7px 11px}
+  .seg button{padding:9px 5px}
+}
+@media (max-width:380px){
+  .pips{flex-wrap:wrap}
+  .pips button{flex:1 1 18%}
+  .tiles{grid-template-columns:repeat(auto-fill,minmax(72px,1fr))}
+}
+/* Coarse-pointer (touch) devices: bump minimum tap target sizes */
+@media (pointer:coarse){
+  .rs-btn,.preset,.seg button,.tabs button,.pips button{min-height:40px}
+  .inv{min-height:44px}
+}
 </style>
 </head>
 <body>
+<a class="skip-link" href="#results">Skip to results</a>
 
 <header class="app">
   <div class="brand">
-    <div class="glyph">𓋹</div>
+    <div class="glyph" aria-hidden="true">𓋹</div>
     <div>
-      <h1>Tombs of Amascut — Loot Simulator</h1>
-      <div class="sub">Monte-Carlo reward engine · faithful to the OSRS Wiki</div>
+      <h1>Tombs of Amascut Loot Simulator</h1>
+      <div class="sub">Open the chest once or 100k times, using the OSRS Wiki's drop maths</div>
     </div>
   </div>
   <div class="spacer"></div>
-  <div class="seedbox" title="Set a seed for reproducible runs. Leave blank for random.">
-    <span>Seed</span>
-    <input type="text" id="seed" placeholder="random" />
-    <button class="rs-btn" id="reseedBtn">⟳</button>
+  <div class="seedbox">
+    <label for="seed">Seed</label>
+    <input type="text" id="seed" placeholder="random" aria-describedby="seedHelp" />
+    <button class="rs-btn" id="reseedBtn" aria-label="Roll a new random seed" title="Roll a new random seed">⟳</button>
+    <span id="seedHelp" class="sr-only">Type a number or word for repeatable runs, or leave it blank for a fresh seed.</span>
   </div>
 </header>
 
 <div class="wrap">
   <!-- ===================== CONFIG ===================== -->
-  <div class="col-config">
+  <aside class="col-config" aria-label="Raid setup">
 
     <div class="panel">
       <h2><span class="i">👥</span> Raid Party</h2>
       <div class="body">
-        <label class="field">
-          <div class="lab">Team size <b id="teamSizeLab">1</b></div>
-          <div class="pips" id="teamPips"></div>
-          <div class="hint">Boss HP &amp; point pools scale with party via the Wiki's team-size table. The unique roll uses the team's <b>combined</b> points; the purple is awarded to one player weighted by contribution.</div>
-        </label>
+        <div class="field">
+          <div class="lab" id="teamSizeLbl">Team size <b id="teamSizeLab">1</b></div>
+          <div class="pips" id="teamPips" role="group" aria-labelledby="teamSizeLbl"></div>
+          <div class="hint">Boss HP and point pools scale with party size off the Wiki's team-size table. The unique roll uses the team's <b>combined</b> points, then the purple goes to one player based on how much they put in.</div>
+        </div>
         <label class="field" id="youShareField" style="display:none">
           <div class="lab">Team composition <b id="youShareLab">Coordinated</b></div>
           <select id="teamComp">
-            <option value="even">Coordinated — premade, all similar skill</option>
-            <option value="mixed">Mixed — pros &amp; noobs together</option>
-            <option value="pug">PUG mass — random strangers, wild variance</option>
+            <option value="even">Coordinated: premade, similar skill</option>
+            <option value="mixed">Mixed: pros and noobs together</option>
+            <option value="pug">PUG mass: random strangers, big skill gap</option>
             <option value="carry">You carry the team</option>
             <option value="leech">You leech off the team</option>
           </select>
-          <div class="hint">Sets each player's <b>persistent skill</b>, which drives point contribution <i>and</i> who earns MVP in each boss room — a strong player tends to MVP several rooms. "You" = Player&nbsp;1, tracked separately. The Wiki's per-person estimate assumes an even split.</div>
+          <div class="hint">Sets each player's skill, which decides both their share of the points <i>and</i> who gets MVP in each boss room. A strong player tends to MVP a few rooms, so they bag more purples. "You" are Player&nbsp;1, tracked on your own. The Wiki's per-person numbers assume an even split.</div>
         </label>
       </div>
     </div>
@@ -428,16 +494,16 @@ canvas{display:block;width:100%}
       <h2><span class="i">⚙️</span> Raid Level <span class="count" id="rlModeCount"></span></h2>
       <div class="body">
         <div class="rl-readout">
-          <div class="big" id="rlBig" title="Your raid level — the sum of all active invocation points.">400</div>
+          <div class="big" id="rlBig" title="Your raid level: the total of every active invocation.">400</div>
           <div class="meta">
-            <div title="Raid level after diminishing returns (above 310, then 430). Drives the purple denominator."><b>Adjusted:</b> <span class="v" id="rlAdj">340</span> · <span title="Reward points needed for each 1% of unique chance: 10,500 − 20 × adjusted RL."><b>Pts/1%:</b> <span class="v" id="rlDenom">3,700</span></span></div>
+            <div title="Raid level after diminishing returns (above 310, then 430). This sets the purple denominator."><b>Adjusted:</b> <span class="v" id="rlAdj">340</span> · <span title="Reward points needed for each 1% of unique chance: 10,500 minus 20 times adjusted RL."><b>Pts/1%:</b> <span class="v" id="rlDenom">3,700</span></span></div>
             <div><b>Per-1% purple</b> uses diminishing-returns RL</div>
-            <div title="Estimated combined team reward points at this raid level, team size & downs."><b>Est. team points:</b> <span class="v" id="rlEstPts">—</span></div>
+            <div title="Rough combined team reward points at this raid level, team size and downs."><b>Est. team points:</b> <span class="v" id="rlEstPts">-</span></div>
           </div>
         </div>
-        <div class="seg" id="rlMode" style="margin-bottom:12px">
-          <button data-v="manual" class="active">Quick slider</button>
-          <button data-v="invocations">Invocation builder</button>
+        <div class="seg" id="rlMode" style="margin-bottom:12px" role="group" aria-label="Raid level input mode">
+          <button type="button" data-v="manual" class="active">Quick slider</button>
+          <button type="button" data-v="invocations">Invocation builder</button>
         </div>
         <div id="rlManualWrap">
           <label class="field">
@@ -448,9 +514,9 @@ canvas{display:block;width:100%}
               <button class="preset" data-rl="150">150 · Normal</button>
               <button class="preset" data-rl="300">300 · Expert</button>
               <button class="preset" data-rl="350">350 · Grind</button>
-              <button class="preset" data-rl="400">400 · Meta</button>
-              <button class="preset" data-rl="450">450 · CA</button>
+              <button class="preset" data-rl="410">410 · Meta</button>
               <button class="preset" data-rl="500">500 · Max</button>
+              <button class="preset" data-rl="600">600 · Insane</button>
             </div>
           </label>
         </div>
@@ -464,30 +530,30 @@ canvas{display:block;width:100%}
     <div class="panel collapsible">
       <h2><span class="i">🏆</span> Performance <span class="chev">▾</span></h2>
       <div class="body">
-        <label class="field">
-          <div class="lab">Wardens P2 — <b id="downsLab">2-down</b></div>
-          <div class="pips small" id="downsPips"></div>
-          <div class="hint">Number of times the Warden is brought down in Phase 2. Each extra "down" is another full P2 Warden HP pool of points. <b>3-down ≈ +3%</b> total points (matches the Wiki); an 8-down is the theoretical maximum.</div>
-        </label>
-        <label class="field">
-          <div class="lab">Team efficiency <b id="effLab">Average (100%)</b></div>
-          <div class="seg" id="effMode">
-            <button data-v="casual">Casual</button>
-            <button data-v="average" class="active">Average</button>
-            <button data-v="efficient">Efficient</button>
-            <button data-v="max">Max</button>
+        <div class="field">
+          <div class="lab" id="downsLbl">Wardens P2: <b id="downsLab">2-down</b></div>
+          <div class="pips small" id="downsPips" role="group" aria-labelledby="downsLbl"></div>
+          <div class="hint">How many times you take the Warden down in Phase 2. Every extra down is another full P2 Warden HP bar of points. <b>3-down is roughly +3%</b> total points (matches the Wiki); 8-down is the theoretical cap.</div>
+        </div>
+        <div class="field">
+          <div class="lab" id="effLbl">Team efficiency <b id="effLab">Average (100%)</b></div>
+          <div class="seg" id="effMode" role="group" aria-labelledby="effLbl">
+            <button type="button" data-v="casual">Casual</button>
+            <button type="button" data-v="average" class="active">Average</button>
+            <button type="button" data-v="efficient">Efficient</button>
+            <button type="button" data-v="max">Max</button>
           </div>
-          <div class="hint">Scales points ±, modelling shield regen, kill speed, trap failures &amp; precision loss noted by the Wiki. "Average" matches the Wiki's baseline estimate.</div>
-        </label>
+          <div class="hint">Nudges points up or down for shield regen, kill speed, trap fails and the small RuneScript rounding loss the Wiki notes. "Average" sits on the Wiki's baseline.</div>
+        </div>
         <label class="field">
           <div class="lab">Run-to-run variance (CV) <b id="cvLab">12%</b></div>
-          <input type="range" id="cv" min="0" max="35" step="1" value="12" />
-          <div class="hint">Random spread of point totals between raids. 0% = every raid identical to the estimate.</div>
+          <input type="range" id="cv" min="0" max="35" step="1" value="12" aria-describedby="cvHelp" />
+          <div class="hint" id="cvHelp">How much point totals bounce around between raids. 0% means every raid lands on the estimate.</div>
         </label>
         <label class="field">
           <div class="lab">Avg deaths / player / raid <b id="deathLab">0.10</b></div>
-          <input type="range" id="deathRate" min="0" max="300" step="1" value="10" />
-          <div class="hint">Poisson(λ). Each death removes <b>max(20% of current points, 1,000)</b> — exactly as on the Wiki.</div>
+          <input type="range" id="deathRate" min="0" max="300" step="1" value="10" aria-describedby="deathHelp" />
+          <div class="hint" id="deathHelp">Poisson(λ). Every death wipes <b>max(20% of current points, 1,000)</b>, same as the Wiki.</div>
         </label>
       </div>
     </div>
@@ -505,63 +571,63 @@ canvas{display:block;width:100%}
         </label>
       </div>
     </div>
-  </div>
+  </aside>
 
   <!-- ===================== RESULTS ===================== -->
-  <div class="col-results">
+  <main class="col-results" id="results">
     <div class="runbar">
       <label class="field n">
         <div class="lab">Number of raids <b id="nRaidsLab">1,000</b></div>
-        <input type="range" id="nRaids" min="0" max="60" step="1" value="30" />
-        <div class="hint" id="nRaidsHint">Monte-Carlo over many raids → aggregate statistics. Set to 1 for a single detailed loot breakdown.</div>
+        <input type="range" id="nRaids" min="0" max="60" step="1" value="30" aria-describedby="nRaidsHint" />
+        <div class="hint" id="nRaidsHint">Runs a pile of raids and crunches the stats. Set it to 1 for a full single-raid breakdown.</div>
       </label>
-      <button class="rs-btn" id="runOneBtn" style="font-size:15px;padding:9px 14px">Run 1 raid</button>
-      <button class="btn-primary" id="runBtn">▶ Simulate</button>
+      <button type="button" class="rs-btn" id="runOneBtn" style="font-size:15px;padding:9px 14px">Run 1 raid</button>
+      <button type="button" class="btn-primary" id="runBtn">▶ Simulate</button>
     </div>
-    <div class="progress" id="progress"><div class="bar" id="progressBar"></div></div>
+    <div class="progress" id="progress"><div class="bar" id="progressBar" role="progressbar" aria-label="Simulation progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div></div>
 
-    <div class="tabs">
-      <button data-view="expected" class="active">Expected rewards</button>
-      <button data-view="single">Loot breakdown</button>
-      <button data-view="batch">Aggregate stats</button>
-      <button data-view="mechanics">Mechanics</button>
+    <div class="tabs" role="tablist" aria-label="Result views">
+      <button type="button" role="tab" id="tab-expected" aria-controls="view-expected" aria-selected="true" data-view="expected" class="active">Expected rewards</button>
+      <button type="button" role="tab" id="tab-single" aria-controls="view-single" aria-selected="false" data-view="single">Loot breakdown</button>
+      <button type="button" role="tab" id="tab-batch" aria-controls="view-batch" aria-selected="false" data-view="batch">Aggregate stats</button>
+      <button type="button" role="tab" id="tab-mechanics" aria-controls="view-mechanics" aria-selected="false" data-view="mechanics">Mechanics</button>
     </div>
 
-    <div class="view active" id="view-expected"><div id="expectedResult"></div></div>
+    <div class="view active" id="view-expected" role="tabpanel" aria-labelledby="tab-expected" tabindex="0"><div id="expectedResult"></div></div>
 
-    <div class="view" id="view-single">
+    <div class="view" id="view-single" role="tabpanel" aria-labelledby="tab-single" tabindex="0" hidden>
       <div class="empty" id="singleEmpty">
-        <div class="em">🏺</div>
-        <h3>No raid simulated yet</h3>
-        <p>Configure your party and raid level, then hit <b>Run 1 raid</b> to crack the chest and see exactly how points, deaths and the unique roll played out.</p>
+        <div class="em" aria-hidden="true">🏺</div>
+        <h3>No raid run yet</h3>
+        <p>Set up your party and raid level, then hit <b>Run 1 raid</b> to open the chest and see how the points, deaths and unique roll shook out.</p>
       </div>
       <div id="singleResult"></div>
     </div>
 
-    <div class="view" id="view-batch">
+    <div class="view" id="view-batch" role="tabpanel" aria-labelledby="tab-batch" tabindex="0" hidden>
       <div class="empty" id="batchEmpty">
-        <div class="em">📈</div>
-        <h3>No simulation run yet</h3>
-        <p>Slide <b>Number of raids</b> up (try thousands) and press <b>Simulate</b> for purple rates, item distributions, point histograms, deaths and dry-streak analysis.</p>
+        <div class="em" aria-hidden="true">📈</div>
+        <h3>Nothing simulated yet</h3>
+        <p>Crank <b>Number of raids</b> up (try a few thousand) and hit <b>Simulate</b> for purple rates, item splits, point histograms, deaths and dry streaks.</p>
       </div>
       <div id="batchResult"></div>
     </div>
 
-    <div class="view" id="view-mechanics"><div class="panel"><div class="body doc" id="mechanicsDoc"></div></div></div>
-  </div>
+    <div class="view" id="view-mechanics" role="tabpanel" aria-labelledby="tab-mechanics" tabindex="0" hidden><div class="panel"><div class="body doc" id="mechanicsDoc"></div></div></div>
+  </main>
 </div>
 
-<div class="toast" id="toast"></div>
-<div class="footer">
-  Independent educational tool. Mechanics &amp; figures from the
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<footer class="footer">
+  Fan-made, for fun and learning. Drop maths and numbers come straight from the
   <a href="https://oldschool.runescape.wiki/w/Tombs_of_Amascut" target="_blank" rel="noopener">OSRS Wiki</a>
-  (Tombs of Amascut · Chest · Invocations · loot module). Font: RuneScape (RuneStar). Not affiliated with Jagex.
-</div>
+  (Tombs of Amascut, Chest, Invocations and the loot module). Font: RuneScape (RuneStar). Not affiliated with Jagex.
+</footer>
 
 <script>
 "use strict";
 /* ============================================================================
-   TOMBS OF AMASCUT — LOOT SIMULATOR  (all reward math from the OSRS Wiki)
+   TOMBS OF AMASCUT - LOOT SIMULATOR  (all reward math from the OSRS Wiki)
    ----------------------------------------------------------------------------
    PROBABILITY (exact):
      • Purple:  min(0.55, teamPoints / (100·(10500 − 20·adjRL)))           [team]
@@ -570,7 +636,7 @@ canvas{display:block;width:100%}
      • Pet (Tumeken's guardian): teamPoints / (100·(350000 − 700·adjRLpet))
      • Clue (elite):  personalPoints / 200000     (per person)
      • Death: −max(20% pts, 1000) each.
-   POINTS ENGINE (Wiki Module — HP-based):
+   POINTS ENGINE (Wiki Module - HP-based):
      scaled_hp = floor(base_hp · (1 + RL/250) · TEAM_SCALE[n])
      points    = floor(scaled_hp · mult) · count        (P2 Warden count = downs)
      + fixed challenge-room points; + completeness factor (path/adds) calibrated
@@ -692,24 +758,59 @@ const INVOCATIONS=[
   {c:"Wardens",n:"Overclocked 2",p:10,d:"P3: slam 2 ticks faster"},
   {c:"Wardens",n:"Insanity",p:50,d:"P3: slam 3 ticks faster"},
 ];
-/* Realistic, commonly-run meta setups — each verified to its exact raid level
+/* Realistic, commonly-run meta setups - each verified to its exact raid level
    (efficient point-per-difficulty picks first; one per exclusive group). */
 const INV_PRESETS={
-  normal:{label:"Normal 155",list:["Persistence","Walk for It","Need Some Help?","Pathseeker","Aerial Assault","Not Just a Head","Stay Vigilant","Boulderdash","Acceleration","Lively Larvae","Blood Thinners","Jungle Japes","Ancient Haste","Keep Back","Blowing Mud"]},
-  efficient:{label:"Efficient 300",list:["Hardcore Run","Walk for It","No Help Needed","Pathfinder","On a Diet","Overly Draining","More Overlords","Aerial Assault","Medic!","Not Just a Head","Arterial Spray","Blood Thinners","Upset Stomach","Stay Vigilant","Jungle Japes","Boulderdash","Shaking Things Up","Ancient Haste","Acceleration","Keep Back"]},
-  grind:{label:"Grind 350",list:["Hardcore Run","Walk for It","No Help Needed","Pathfinder","On a Diet","Overly Draining","Lively Larvae","More Overlords","Aerial Assault","Medic!","Blowing Mud","Not Just a Head","Arterial Spray","Blood Thinners","Upset Stomach","Stay Vigilant","Double Trouble","Feeling Special?","Boulderdash","Shaking Things Up","Gotta Have Faith","Ancient Haste","Acceleration"]},
-  meta:{label:"Meta 400",list:["Hardcore Run","Run for It","No Help Needed","Pathfinder","Quiet Prayers","On a Diet","Overly Draining","Dehydration","Lively Larvae","More Overlords","Aerial Assault","Medic!","Not Just a Head","Arterial Spray","Blood Thinners","Upset Stomach","Double Trouble","Stay Vigilant","Feeling Special?","Boulderdash","Shaking Things Up","Gotta Have Faith","Ancient Haste","Acceleration"]},
-  pro:{label:"Pro 450",list:["Hardcore Run","Run for It","No Help Needed","Pathfinder","Quiet Prayers","Deadly Prayers","On a Diet","Overly Draining","Dehydration","Lively Larvae","More Overlords","Aerial Assault","Medic!","Blowing Mud","Not Just a Head","Arterial Spray","Blood Thinners","Upset Stomach","Double Trouble","Stay Vigilant","Feeling Special?","Keep Back","Boulderdash","Shaking Things Up","Gotta Have Faith","Mind the Gap!","Ancient Haste","Acceleration"]},
-  max:{label:"Max 545",list:["Hardcore Run","Sprint for It","No Help Needed","Pathmaster","Walk the Path","Quiet Prayers","Deadly Prayers","On a Diet","Dehydration","Overly Draining","Lively Larvae","More Overlords","Blowing Mud","Medic!","Aerial Assault","Not Just a Head","Arterial Spray","Blood Thinners","Upset Stomach","Double Trouble","Keep Back","Stay Vigilant","Feeling Special?","Shaking Things Up","Boulderdash","Ancient Haste","Acceleration","Insanity"]},
+  r150:{label:"150",list:["Softcore Run","Walk for It","Need Some Help?","Pathseeker","Aerial Assault","Not Just a Head","Stay Vigilant","Boulderdash","Acceleration","Lively Larvae","Blood Thinners","Jungle Japes","Ancient Haste","Keep Back"]},
+  r300:{label:"300",list:["Hardcore Run","Walk for It","No Help Needed","Pathfinder","On a Diet","Overly Draining","More Overlords","Aerial Assault","Medic!","Not Just a Head","Arterial Spray","Blood Thinners","Upset Stomach","Stay Vigilant","Jungle Japes","Boulderdash","Shaking Things Up","Ancient Haste","Acceleration","Keep Back"]},
+  r350:{label:"350",list:["Hardcore Run","Walk for It","No Help Needed","Pathfinder","On a Diet","Overly Draining","Lively Larvae","More Overlords","Aerial Assault","Medic!","Blowing Mud","Not Just a Head","Arterial Spray","Blood Thinners","Upset Stomach","Stay Vigilant","Double Trouble","Feeling Special?","Boulderdash","Shaking Things Up","Gotta Have Faith","Ancient Haste","Acceleration"]},
+  r410:{label:"410",list:["Hardcore Run","Run for It","No Help Needed","Pathfinder","Quiet Prayers","On a Diet","Overly Draining","Dehydration","Lively Larvae","More Overlords","Aerial Assault","Medic!","Not Just a Head","Arterial Spray","Blood Thinners","Upset Stomach","Double Trouble","Stay Vigilant","Feeling Special?","Boulderdash","Shaking Things Up","Gotta Have Faith","Ancient Haste","Acceleration","Keep Back"]},
+  r500:{label:"500",list:["Hardcore Run","Run for It","No Help Needed","Pathfinder","Walk the Path","Quiet Prayers","Deadly Prayers","On a Diet","Overly Draining","Dehydration","Lively Larvae","More Overlords","Blowing Mud","Medic!","Aerial Assault","Not Just a Head","Arterial Spray","Blood Thinners","Upset Stomach","Double Trouble","Stay Vigilant","Feeling Special?","Mind the Gap!","Gotta Have Faith","Shaking Things Up","Boulderdash","Ancient Haste","Acceleration","Penetration"]},
 };
-/* Mutually-exclusive invocation groups — picking one clears the others in-game. */
+/* Mutually-exclusive invocation groups - picking one clears the others in-game. */
 const EXCL_GROUPS={
   "Try Again":"attempts","Persistence":"attempts","Softcore Run":"attempts","Hardcore Run":"attempts",
   "Walk for It":"time","Jog for It":"time","Run for It":"time","Sprint for It":"time",
   "Need Some Help?":"help","Need Less Help?":"help","No Help Needed":"help",
   "Pathseeker":"pathtier","Pathfinder":"pathtier","Pathmaster":"pathtier",
-  "Overclocked":"overclock","Overclocked 2":"overclock",
 };
+/* Prerequisite chains - enabling requires the listed invocations; disabling a
+   prerequisite cascades off its dependents (Wardens P3 slam-speed chain). */
+const PREREQ={
+  "Overclocked 2":["Overclocked"],
+  "Insanity":["Overclocked","Overclocked 2"],
+};
+/* Invocation category icons (OSRS Wiki). */
+const INV_ICON={
+  attempts:{file:"Invocations_-_attempts_icon.png",emoji:"💀"},
+  time:{file:"Invocations_-_time_limit_icon.png",emoji:"⏱️"},
+  helpful:{file:"Invocations_-_helpful_spirit_icon.png",emoji:"🤲"},
+  walkpath:{file:"Invocations_-_Walk_the_Path_icon.png",emoji:"🚶"},
+  pathtier:{file:"Invocations_-_path_level_up_icon.png",emoji:"🧭"},
+  prayer:{file:"Invocations_-_prayer_effectiveness_icon.png",emoji:"🙏"},
+  diet:{file:"Invocations_-_On_a_Diet_icon.png",emoji:"🍗"},
+  dehydration:{file:"Invocations_-_Dehydration_icon.png",emoji:"💧"},
+  draining:{file:"Invocations_-_Overly_Draining_icon.png",emoji:"⚡"},
+  Kephri:{file:"Kephri_icon.png",emoji:"🪲"},
+  Zebak:{file:"Zebak_icon.png",emoji:"🐊"},
+  Akkha:{file:"Akkha_icon.png",emoji:"👁️"},
+  "Ba-Ba":{file:"Ba-Ba_icon.png",emoji:"🐒"},
+  Wardens:{file:"Tumeken%27s_Warden_icon.png",emoji:"⚔️"},
+};
+function invIcon(inv){
+  const n=inv.n, c=inv.c;
+  if(c==="Attempts") return INV_ICON.attempts;
+  if(c==="Time Limit") return INV_ICON.time;
+  if(c==="Helpful Spirit") return INV_ICON.helpful;
+  if(c==="Path Levels") return n==="Walk the Path"?INV_ICON.walkpath:INV_ICON.pathtier;
+  if(c==="Prayer & Supplies"){
+    if(n==="Quiet Prayers"||n==="Deadly Prayers") return INV_ICON.prayer;
+    if(n==="On a Diet") return INV_ICON.diet;
+    if(n==="Dehydration") return INV_ICON.dehydration;
+    return INV_ICON.draining;
+  }
+  return INV_ICON[c]||INV_ICON.attempts;
+}
 /* Team-composition archetypes → persistent per-player skill model. */
 const COMP={
   even:{label:"Coordinated",hint:"premade team, all similar skill"},
@@ -750,8 +851,8 @@ const BOSSES=[
   {n:"P2 Wardens",hp:140,mult:2.0,count:2,p2:true},
   {n:"P3 Warden",hp:880,mult:2.5,count:1},
 ];
-const FLAT_PER=1150;          // Scabaras 300 + Apmeken 450 + Crondis 400 — split evenly
-const MVP_PER=2700;           // MVP bonus pool / member — awarded to the TOP contributor of each boss room
+const FLAT_PER=1150;          // Scabaras 300 + Apmeken 450 + Crondis 400 - split evenly
+const MVP_PER=2700;           // MVP bonus pool / member - awarded to the TOP contributor of each boss room
 const CHALLENGE_PER=FLAT_PER+MVP_PER; // total per member (3850); preserves the Wiki anchor
 const MVP_ROOMS=["Akkha","Ba-Ba","Kephri","Zebak"];
 const K_BOSS=1.2544;          // completeness factor (path mult + adds), calibrated to Wiki anchor
@@ -786,7 +887,7 @@ function weightedPick(rng,items,key){
 }
 /* Persistent per-player skill for this raid (player 0 = You). Skill drives BOTH
    point contribution and MVP odds, so a strong player tends to MVP several
-   rooms — MVPs correlate across rooms instead of being independent coin-flips. */
+   rooms - MVPs correlate across rooms instead of being independent coin-flips. */
 function genSkills(n,comp,rng){
   const sk=new Array(n);
   for(let i=0;i<n;i++){
@@ -823,7 +924,7 @@ function simulateRaid(cfg,rng){
 
   // base points distributed by contribution
   const pre=shares.map((s,i)=>({pts:nonMvpTeam*s, mvps:0}));
-  // MVP — each boss room's award goes to that room's top performer. Weight uses
+  // MVP - each boss room's award goes to that room's top performer. Weight uses
   // the PERSISTENT skill, so a strong player MVPs several rooms (correlated).
   const roomAward=mvpTeam/MVP_ROOMS.length;
   for(let r=0;r<MVP_ROOMS.length;r++){
@@ -843,7 +944,7 @@ function simulateRaid(cfg,rng){
   }
   const expTeam=expectedTeamPoints(rl,n,downs,effM);
 
-  // PURPLE — team roll with per-item suppression, winner ∝ contribution
+  // PURPLE - team roll with per-item suppression, winner ∝ contribution
   const rates=itemTeamRates(teamPoints,rl);
   let purple=null,r=rng(),cum=0;
   for(const it of rates){ if(r<cum+it.rate){
@@ -852,17 +953,17 @@ function simulateRaid(cfg,rng){
     purple={winnerIdx:winner.i,item:it}; break;
   } cum+=it.rate; }
 
-  // PET — separate team roll, winner ∝ contribution
+  // PET - separate team roll, winner ∝ contribution
   let pet=null;
   if(rng()<teamPetChance(teamPoints,rl)){
     const w=weightedPick(rng,players.map(p=>({...p,w:Math.max(1e-9,p.points)})),"w");
     players[w.i].pet=true; pet={winnerIdx:w.i};
   }
 
-  // CLUE — independent per player
+  // CLUE - independent per player
   for(const p of players){ if(rng()<personalClue(p.points)) p.clues++; }
 
-  // COMMON — 3 rolls per player
+  // COMMON - 3 rolls per player
   const mult=rl>=300?(1.15+0.01*(rl-300)/5):1;
   for(const p of players){
     if(p.points<=0) continue;
@@ -943,20 +1044,24 @@ const wlink=name=>`<a href="${wikiUrl(name)}" target="_blank" rel="noopener" tit
 const fmt=n=>n>=1e9?(n/1e9).toFixed(2)+"B":n>=1e6?(n/1e6).toFixed(n>=1e7?1:2)+"M":n>=1e4?Math.round(n/1e3)+"K":n>=1000?(Math.round(n/100)/10)+"K":Math.round(n).toLocaleString();
 const fmtFull=n=>Math.round(n).toLocaleString();
 const pct=(x,d=2)=>(x*100).toFixed(d)+"%";
-const oneIn=p=>p<=0?"—":"1 / "+(1/p).toFixed(1);
+const oneIn=p=>p<=0?"-":"1 / "+(1/p).toFixed(1);
 
 /* ============================================================================
    BUILD CONFIG UI
    ========================================================================== */
 function buildTeamPips(){
   const wrap=document.getElementById("teamPips"); wrap.innerHTML="";
-  for(let i=1;i<=8;i++){ const b=document.createElement("button"); b.textContent=i; if(i===state.teamSize)b.className="active";
+  for(let i=1;i<=8;i++){ const b=document.createElement("button"); b.type="button"; b.textContent=i;
+    b.setAttribute("aria-label",i+(i===1?" player":" players")); b.setAttribute("aria-pressed",i===state.teamSize?"true":"false");
+    if(i===state.teamSize)b.className="active";
     b.onclick=()=>{ state.teamSize=i; buildTeamPips(); document.getElementById("teamSizeLab").textContent=i; document.getElementById("youShareField").style.display=i>1?"block":"none"; refreshDerived(); renderExpected(); };
     wrap.appendChild(b); }
 }
 function buildDownsPips(){
   const wrap=document.getElementById("downsPips"); wrap.innerHTML="";
-  for(let i=2;i<=8;i++){ const b=document.createElement("button"); b.textContent=i; if(i===state.downs)b.className="active";
+  for(let i=2;i<=8;i++){ const b=document.createElement("button"); b.type="button"; b.textContent=i;
+    b.setAttribute("aria-label",i+"-down"); b.setAttribute("aria-pressed",i===state.downs?"true":"false");
+    if(i===state.downs)b.className="active";
     b.onclick=()=>{ state.downs=i; buildDownsPips(); document.getElementById("downsLab").textContent=i+"-down"; refreshDerived(); renderExpected(); };
     wrap.appendChild(b); }
 }
@@ -966,22 +1071,37 @@ function buildInvocations(){
     const wrap=document.createElement("div"); wrap.className="inv-cat";
     const h=document.createElement("div"); h.className="inv-cat-h"; h.textContent=cat; wrap.appendChild(h);
     for(const inv of INVOCATIONS.filter(i=>i.c===cat)){
-      const row=document.createElement("div"); row.className="inv"+(state.invActive.has(inv.n)?" on":"");
-      row.innerHTML=`<span class="box">✓</span><span class="nm">${inv.n}<small>${inv.d}</small></span><span class="pts">+${inv.p}</span>`;
+      const ic=invIcon(inv);
+      const reqNote=PREREQ[inv.n]?` (needs ${PREREQ[inv.n].join(" + ")})`:"";
+      const on=state.invActive.has(inv.n);
+      const row=document.createElement("div"); row.className="inv"+(on?" on":""); row.dataset.inv=inv.n;
+      row.setAttribute("role","checkbox"); row.setAttribute("aria-checked",on?"true":"false"); row.tabIndex=0;
+      row.setAttribute("aria-label",`${inv.n}, plus ${inv.p} raid levels. ${inv.d}.${reqNote}`);
+      row.title=`${inv.n}: +${inv.p} raid levels. ${inv.d}.${reqNote}`;
+      row.innerHTML=`<span class="invico" aria-hidden="true">${iconHTML(ic.file,ic.emoji)}</span><span class="nm">${inv.n}<small>${inv.d}</small></span><span class="pts">+${inv.p}</span>`;
       row.onclick=()=>{ toggleInvocation(inv.n); };
+      row.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggleInvocation(inv.n); } };
       wrap.appendChild(row);
     }
     list.appendChild(wrap);
   }
 }
 function toggleInvocation(name){
-  if(state.invActive.has(name)){ state.invActive.delete(name); }
-  else{
+  if(state.invActive.has(name)){
+    state.invActive.delete(name);
+    // anything that requires this one must switch off too
+    let changed=true;
+    while(changed){ changed=false;
+      for(const dep in PREREQ) if(state.invActive.has(dep) && PREREQ[dep].some(r=>!state.invActive.has(r))){ state.invActive.delete(dep); changed=true; }
+    }
+  } else {
     const g=EXCL_GROUPS[name];
     if(g) for(const k in EXCL_GROUPS) if(EXCL_GROUPS[k]===g && k!==name) state.invActive.delete(k);
+    for(const req of (PREREQ[name]||[])) state.invActive.add(req);  // pull in prerequisites
     state.invActive.add(name);
   }
-  buildInvocations(); refreshDerived(); renderExpected();  // re-render keeps exclusive toggles in sync
+  buildInvocations(); refreshDerived(); renderExpected();  // re-render keeps toggles in sync
+  const back=document.querySelector('#invList [data-inv="'+(window.CSS&&CSS.escape?CSS.escape(name):name)+'"]'); if(back) back.focus();
 }
 function buildInvPresets(){
   const wrap=document.getElementById("invPresets"); wrap.innerHTML="";
@@ -993,8 +1113,9 @@ function applyInvPreset(k){ state.invActive=new Set(k==="clear"?[]:(INV_PRESETS[
 
 function wireControls(){
   document.getElementById("teamComp").onchange=e=>{state.teamComp=e.target.value;document.getElementById("youShareLab").textContent=COMP[e.target.value].label;};
-  document.querySelectorAll("#rlMode button").forEach(b=>b.onclick=()=>{document.querySelectorAll("#rlMode button").forEach(x=>x.classList.remove("active"));b.classList.add("active");state.rlMode=b.dataset.v;document.getElementById("rlManualWrap").style.display=b.dataset.v==="manual"?"block":"none";document.getElementById("rlInvWrap").style.display=b.dataset.v==="invocations"?"block":"none";refreshDerived();renderExpected();});
-  document.querySelectorAll("#effMode button").forEach(b=>b.onclick=()=>{document.querySelectorAll("#effMode button").forEach(x=>x.classList.remove("active"));b.classList.add("active");state.eff=b.dataset.v;document.getElementById("effLab").textContent=EFF[b.dataset.v].l;refreshDerived();renderExpected();});
+  const segSet=(sel,active)=>document.querySelectorAll(sel+" button").forEach(x=>{const on=x===active;x.classList.toggle("active",on);x.setAttribute("aria-pressed",on?"true":"false");});
+  document.querySelectorAll("#rlMode button").forEach(b=>{b.setAttribute("aria-pressed",b.classList.contains("active")?"true":"false");b.onclick=()=>{segSet("#rlMode",b);state.rlMode=b.dataset.v;document.getElementById("rlManualWrap").style.display=b.dataset.v==="manual"?"block":"none";document.getElementById("rlInvWrap").style.display=b.dataset.v==="invocations"?"block":"none";refreshDerived();renderExpected();};});
+  document.querySelectorAll("#effMode button").forEach(b=>{b.setAttribute("aria-pressed",b.classList.contains("active")?"true":"false");b.onclick=()=>{segSet("#effMode",b);state.eff=b.dataset.v;document.getElementById("effLab").textContent=EFF[b.dataset.v].l;refreshDerived();renderExpected();};});
 
   const rlM=document.getElementById("rlManual");
   rlM.oninput=()=>{state.rlManual=+rlM.value;document.getElementById("rlManualLab").textContent=rlM.value;refreshDerived();renderExpected();};
@@ -1002,7 +1123,7 @@ function wireControls(){
 
   const cv=document.getElementById("cv"); cv.oninput=()=>{state.cv=+cv.value;document.getElementById("cvLab").textContent=cv.value+"%";};
   const dr=document.getElementById("deathRate"); dr.oninput=()=>{state.deathRate=(+dr.value)/100;document.getElementById("deathLab").textContent=state.deathRate.toFixed(2);};
-  const nr=document.getElementById("nRaids"); nr.oninput=()=>{state.nRaidsExp=+nr.value;const n=nRaidsFromSlider(+nr.value);document.getElementById("nRaidsLab").textContent=fmtFull(n);document.getElementById("nRaidsHint").textContent=n===1?"A single raid shows a full loot breakdown.":`Monte-Carlo over ${fmtFull(n)} raids → aggregate statistics.`;};
+  const nr=document.getElementById("nRaids"); nr.oninput=()=>{state.nRaidsExp=+nr.value;const n=nRaidsFromSlider(+nr.value);document.getElementById("nRaidsLab").textContent=fmtFull(n);document.getElementById("nRaidsHint").textContent=n===1?"One raid gives a full single-raid breakdown.":`Runs ${fmtFull(n)} raids and crunches the stats.`;};
   document.getElementById("tertThread").onchange=e=>state.tertThread=e.target.checked;
   document.getElementById("tertJewel").onchange=e=>state.tertJewel=e.target.checked;
   document.getElementById("reseedBtn").onclick=()=>{document.getElementById("seed").value=String((Math.random()*4294967296)>>>0);toast("New random seed set");};
@@ -1018,7 +1139,7 @@ function refreshDerived(){
 }
 
 /* ============================================================================
-   EXPECTED REWARDS VIEW (analytical — mirrors the Wiki calculator)
+   EXPECTED REWARDS VIEW (analytical - mirrors the Wiki calculator)
    ========================================================================== */
 function renderExpected(){
   const cfg=readCfg(); const {rl,teamSize:n,downs}=cfg;
@@ -1030,20 +1151,20 @@ function renderExpected(){
   const el=document.getElementById("expectedResult");
 
   let head=`<div class="headline">
-    With no deaths, an even split gives ≈ <b>${fmtFull(expTeam)}</b> contribution points for the team
-    (<b>${fmtFull(Math.round(perPerson))}</b> each). At raid level <b>${rl}</b> this is a
-    <span class="pur">${pct(teamPurp)}</span> chance of a purple across the team
-    (<b>${pct(teamPurp/n,3)}</b> each), and a <b>${pct(teamPet,3)}</b> chance of the pet across the team.
-    ${rl<150?'<br><span style="color:var(--rs-red)">⚠ Below RL 150 the shadow, Masori &amp; ward are suppressed ×1/50.</span>':''}
-    ${rl<50?' <span style="color:var(--rs-red)">Below RL 50 the fang &amp; lightbearer are also suppressed.</span>':''}
+    With no deaths and an even split, the team banks about <b>${fmtFull(expTeam)}</b> reward points
+    (<b>${fmtFull(Math.round(perPerson))}</b> each). At raid level <b>${rl}</b> that's a
+    <span class="pur">${pct(teamPurp)}</span> shot at a purple for the team
+    (<b>${pct(teamPurp/n,3)}</b> each), plus a <b>${pct(teamPet,3)}</b> shot at the pet for the team.
+    ${rl<150?'<br><span style="color:var(--rs-red)">⚠ Under RL 150 the shadow, Masori and ward are cut to 1/50.</span>':''}
+    ${rl<50?' <span style="color:var(--rs-red)">Under RL 50 the fang and lightbearer are cut too.</span>':''}
   </div>`;
 
   // stat cards
   let cards=`<div class="stat-grid">
-    <div class="stat" title="Estimated combined reward points for the whole team, from the Wiki HP-based engine (no deaths).&#10;Each player ≈ this ÷ team size on an even split."><div class="k">Team points (est.)</div><div class="v">${fmt(expTeam)}</div><div class="d">${fmtFull(Math.round(perPerson))} / person · ${downs}-down</div></div>
-    <div class="stat purple" title="Chance at least one player in the team gets a unique this raid.&#10;= min(55%, teamPoints / (100 × (10500 − 20 × adjRL)))"><div class="k">Team purple chance</div><div class="v">${pct(teamPurp)}</div><div class="d">${oneIn(teamPurp)} raids</div></div>
-    <div class="stat cyan" title="Chance the team gets Tumeken's guardian (pet) this raid — rolled independently of the purple.&#10;= teamPoints / (100 × (350000 − 700 × adjRLpet))"><div class="k">Team pet chance</div><div class="v" style="font-size:22px">${pct(teamPet,3)}</div><div class="d">${oneIn(teamPet)} raids</div></div>
-    <div class="stat green" title="Your personal elite clue chance per raid.&#10;= personalPoints / 200000"><div class="k">Elite clue / person</div><div class="v" style="font-size:22px">${pct(personalClue(perPerson),2)}</div><div class="d">${oneIn(personalClue(perPerson))}</div></div>
+    <div class="stat" title="Rough combined reward points for the whole team, from the Wiki HP engine (no deaths).&#10;On an even split each player gets about this divided by team size."><div class="k">Team points (est.)</div><div class="v">${fmt(expTeam)}</div><div class="d">${fmtFull(Math.round(perPerson))} / person · ${downs}-down</div></div>
+    <div class="stat purple" title="Chance at least one player gets a unique this raid.&#10;= min(55%, teamPoints / (100 × (10500 − 20 × adjRL)))"><div class="k">Team purple chance</div><div class="v">${pct(teamPurp)}</div><div class="d">${oneIn(teamPurp)} raids</div></div>
+    <div class="stat cyan" title="Chance the team gets Tumeken's guardian this raid. Rolled on its own, separate from the purple.&#10;= teamPoints / (100 × (350000 − 700 × adjRLpet))"><div class="k">Team pet chance</div><div class="v" style="font-size:22px">${pct(teamPet,3)}</div><div class="d">${oneIn(teamPet)} raids</div></div>
+    <div class="stat green" title="Your own elite clue chance per raid.&#10;= personalPoints / 200000"><div class="k">Elite clue / person</div><div class="v" style="font-size:22px">${pct(personalClue(perPerson),2)}</div><div class="d">${oneIn(personalClue(perPerson))}</div></div>
   </div>`;
 
   // unique table (per person, like wiki)
@@ -1051,7 +1172,7 @@ function renderExpected(){
   let rows="";
   for(const it of rates){
     const supp=rl<it.level;
-    rows+=`<tr class="uniqrow" title="${it.name}: weight ${it.weight} of ${ws}${supp?` — suppressed ×1/50 below RL ${it.level}`:''}">
+    rows+=`<tr class="uniqrow" title="${it.name}: weight ${it.weight} of ${ws}${supp?`, cut to 1/50 under RL ${it.level}`:''}">
       <td class="it pur">${miniIconHTML(it.file,it.emoji)} ${wlink(it.name)}${supp?' <span style="color:var(--rs-red);font-size:12px">×1/50</span>':''}</td>
       <td class="num dim">${it.weight}</td>
       <td class="num">${pct(it.rate/n,4)}</td>
@@ -1061,7 +1182,7 @@ function renderExpected(){
   }
   const totUnique=rates.reduce((a,b)=>a+b.rate,0);
   let utable=`<div class="chart-card"><h3>Average rewards per person</h3>
-    <div class="csub">Analytical odds at RL ${rl}, team ${n}, ${downs}-down, ${EFF[cfg.eff].l} — mirrors the <a href="https://oldschool.runescape.wiki/w/Calculator:Tombs_of_Amascut_loot" target="_blank" rel="noopener">Wiki's loot calculator</a> (even split assumed). Weights total ${ws}.</div>
+    <div class="csub">Odds at RL ${rl}, team ${n}, ${downs}-down, ${EFF[cfg.eff].l}. Matches the <a href="https://oldschool.runescape.wiki/w/Calculator:Tombs_of_Amascut_loot" target="_blank" rel="noopener">Wiki's loot calculator</a> (even split). Weights total ${ws}.</div>
     <table class="utable"><thead><tr>
       <th>Unique</th>
       <th class="num" title="Relative drop weight at this raid level (out of ${ws})">Weight</th>
@@ -1070,8 +1191,8 @@ function renderExpected(){
       <th class="num" title="Chance that someone in the whole team receives it">Team</th>
     </tr></thead>
     <tbody>${rows}
-      <tr class="uniqrow" title="Pet — rolled independently of the purple"><td class="it">${miniIconHTML(PET.file,PET.emoji)} ${wlink(PET.name)} <span style="color:var(--rs-faint);font-size:12px">(pet)</span></td><td class="num dim">—</td><td class="num">${pct(teamPet/n,4)}</td><td class="num cy">${oneIn(teamPet/n)}</td><td class="num dim">${pct(teamPet,3)}</td></tr>
-      <tr class="uniqrow" title="Elite clue — points / 200,000 per person"><td class="it">${miniIconHTML(CLUE.file,CLUE.emoji)} ${wlink(CLUE.name)}</td><td class="num dim">—</td><td class="num">${pct(personalClue(perPerson),3)}</td><td class="num cy">${oneIn(personalClue(perPerson))}</td><td class="num dim">${pct(Math.min(1,expTeam/CLUE_DENOM),2)}</td></tr>
+      <tr class="uniqrow" title="Pet, rolled on its own separate from the purple"><td class="it">${miniIconHTML(PET.file,PET.emoji)} ${wlink(PET.name)} <span style="color:var(--rs-faint);font-size:12px">(pet)</span></td><td class="num dim">-</td><td class="num">${pct(teamPet/n,4)}</td><td class="num cy">${oneIn(teamPet/n)}</td><td class="num dim">${pct(teamPet,3)}</td></tr>
+      <tr class="uniqrow" title="Elite clue: points / 200,000 per person"><td class="it">${miniIconHTML(CLUE.file,CLUE.emoji)} ${wlink(CLUE.name)}</td><td class="num dim">-</td><td class="num">${pct(personalClue(perPerson),3)}</td><td class="num cy">${oneIn(personalClue(perPerson))}</td><td class="num dim">${pct(Math.min(1,expTeam/CLUE_DENOM),2)}</td></tr>
     </tbody>
     <tfoot><tr title="Chance of any unique at all"><td>Any purple</td><td class="num">${ws}</td><td class="num">${pct(totUnique/n,3)}</td><td class="num cy">${oneIn(totUnique/n)}</td><td class="num">${pct(totUnique,2)}</td></tr></tfoot>
     </table></div>`;
@@ -1082,7 +1203,7 @@ function renderExpected(){
   let bsum=0;
   for(const b of BOSSES){ const count=b.p2?downs:b.count; const sh=Math.floor(b.hp*f); const pts=Math.floor(sh*b.mult)*count; bsum+=pts;
     prows+=`<tr class="uniqrow"><td class="it">${b.n}${b.p2?` ×${downs}`:(b.count>1?` ×${b.count}`:'')}</td><td class="num dim">${b.hp}</td><td class="num dim">${b.mult}×</td><td class="num">${fmtFull(Math.round(pts*K_BOSS))}</td></tr>`; }
-  prows+=`<tr class="uniqrow"><td class="it">Challenge rooms (Scabaras + Apmeken + Crondis)</td><td class="num dim">—</td><td class="num dim">even</td><td class="num">${fmtFull(FLAT_PER*n)}</td></tr>`;
+  prows+=`<tr class="uniqrow"><td class="it">Challenge rooms (Scabaras + Apmeken + Crondis)</td><td class="num dim">-</td><td class="num dim">even</td><td class="num">${fmtFull(FLAT_PER*n)}</td></tr>`;
   prows+=`<tr class="uniqrow"><td class="it">🏅 MVP bonuses (top contributor each boss room)</td><td class="num dim">×4</td><td class="num dim">to MVP</td><td class="num">${fmtFull(MVP_PER*n)}</td></tr>`;
   let ptable=`<div class="chart-card"><h3>Where the points come from</h3>
     <div class="csub">Wiki HP-based engine: scaled HP = floor(baseHP · (1+RL/250) · teamScale[${n}]=${TEAM_SCALE[n]}), points = floor(HP·mult)·count, ×completeness ${K_BOSS} for paths/adds. MVP points concentrate on carries in actual raids; this even-split estimate gives each player ${fmtFull(MVP_PER)}.</div>
@@ -1093,7 +1214,7 @@ function renderExpected(){
       <th class="num" title="Estimated points contributed to the team total">Points</th>
     </tr></thead>
     <tbody>${prows}</tbody>
-    <tfoot><tr title="Sum of all sources — matches the Wiki calculator"><td>Estimated team total</td><td></td><td></td><td class="num">${fmtFull(expTeam)}</td></tr></tfoot></table></div>`;
+    <tfoot><tr title="All sources added up, matches the Wiki calculator"><td>Estimated team total</td><td></td><td></td><td class="num">${fmtFull(expTeam)}</td></tr></tfoot></table></div>`;
 
   const sources=`<div class="csub" style="margin:0 2px;line-height:1.7">Sources:
     <a href="https://oldschool.runescape.wiki/w/Chest_(Tombs_of_Amascut)" target="_blank" rel="noopener">Chest mechanics</a> ·
@@ -1152,7 +1273,7 @@ function renderSingle(res,cfg){
   // pooled common + clues
   const pooled={}; let totClues=0;
   for(const p of res.players){ totClues+=p.clues; for(const c of p.common){ if(!pooled[c.name])pooled[c.name]={...c,qty:0}; pooled[c.name].qty+=c.qty; } }
-  let common=`<div class="loot-section"><h4>Common loot — whole team (3 rolls each)</h4><div class="tiles">`;
+  let common=`<div class="loot-section"><h4>Common loot, whole team (3 rolls each)</h4><div class="tiles">`;
   if(totClues>0) common+=`<div class="tile"><div class="qty">${totClues}</div>${iconHTML(CLUE.file,CLUE.emoji)}<div class="nm">${CLUE.name}</div></div>`;
   for(const c of Object.values(pooled).sort((a,b)=>b.qty-a.qty)) common+=`<div class="tile"><div class="qty">${fmt(c.qty)}</div>${iconHTML(c.file,c.emoji)}<div class="nm">${c.name}</div></div>`;
   common+=`</div></div>`;
@@ -1171,30 +1292,30 @@ function renderBatch(acc,cfg){
   const avgDeaths=acc.deathsTotal/n;
 
   // ---- plain-language summary ----
-  let topItem="—",topN=0; for(const k in acc.youItemCounts) if(acc.youItemCounts[k]>topN){topN=acc.youItemCounts[k];topItem=k;}
+  let topItem="-",topN=0; for(const k in acc.youItemCounts) if(acc.youItemCounts[k]>topN){topN=acc.youItemCounts[k];topItem=k;}
   const compTxt = cfg.teamSize===1 ? "solo" : `a ${cfg.teamSize}-man ${COMP[cfg.teamComp].label.toLowerCase()} team`;
   const youEvery = acc.youPurples>0 ? Math.round(n/acc.youPurples) : null;
-  const luck = teamRate>expChance*1.05?'running hot ↑':teamRate<expChance*0.95?'running cold ↓':'right on the expected rate';
+  const luck = teamRate>expChance*1.05?'a bit spooned ↑':teamRate<expChance*0.95?'a bit dry ↓':'bang on the expected rate';
   let narrative=`<div class="headline">
-    Across <b>${fmtFull(n)}</b> raids at <b>RL ${rl}</b> (${compTxt}, ${cfg.downs}-down, ${EFF[cfg.eff].l.split(' ')[0]}),
-    the team pulled <b class="pur">${fmtFull(acc.teamPurples)}</b> purples — about <b>one every ${teamRate>0?(1/teamRate).toFixed(1):'∞'} raids</b> (${luck}).
-    <b>${fmtFull(acc.youPurples)}</b> of them were yours${youEvery?` — one roughly every <b>${fmtFull(youEvery)}</b> raids`:''}, most often
+    Over <b>${fmtFull(n)}</b> raids at <b>RL ${rl}</b> (${compTxt}, ${cfg.downs}-down, ${EFF[cfg.eff].l.split(' ')[0]}),
+    the team pulled <b class="pur">${fmtFull(acc.teamPurples)}</b> purples, roughly <b>one every ${teamRate>0?(1/teamRate).toFixed(1):'∞'} raids</b> (${luck}).
+    <b>${fmtFull(acc.youPurples)}</b> of those were yours${youEvery?`, about <b>one every ${fmtFull(youEvery)}</b> raids`:''}, most often the
     <b class="pur">${topItem}</b>${topN?` (×${fmtFull(topN)})`:''}.
-    You also took home <b>${fmtFull(acc.youPets)}</b> pet${acc.youPets===1?'':'s'}, <b>${fmtFull(acc.youClues)}</b> elite clue${acc.youClues===1?'':'s'}
-    and were room MVP <b>${(acc.youMVPs/n).toFixed(1)}</b> times per raid.
-    Your worst dry streak ran <b>${fmtFull(acc.youMaxDry)}</b> raids without a purple.
+    You also banked <b>${fmtFull(acc.youPets)}</b> pet${acc.youPets===1?'':'s'} and <b>${fmtFull(acc.youClues)}</b> elite clue${acc.youClues===1?'':'s'},
+    and were room MVP <b>${(acc.youMVPs/n).toFixed(1)}</b> times a raid.
+    Your longest dry streak was <b>${fmtFull(acc.youMaxDry)}</b> raids with no purple.
   </div>`;
 
   let cards=`<div class="stat-grid">
-    <div class="stat purple" title="Total uniques the whole team received across all simulated raids."><div class="k">Team purples</div><div class="v">${fmtFull(acc.teamPurples)}</div><div class="d">${oneIn(teamRate)} · obs ${pct(teamRate)}</div></div>
-    <div class="stat purple" title="Uniques that landed on you (Player 1), driven by your contribution share."><div class="k">Your purples</div><div class="v">${fmtFull(acc.youPurples)}</div><div class="d">${oneIn(youRate)}</div></div>
-    <div class="stat cyan" title="Mean theoretical team purple chance per raid. Observed should converge to this — green when within 8%."><div class="k">Expected / raid</div><div class="v" style="font-size:22px">${pct(expChance)}</div><div class="d ${Math.abs(teamRate-expChance)<expChance*0.08?'good':''}">theory ${oneIn(expChance)}</div></div>
-    <div class="stat" title="Average reward points you earned per raid, with standard deviation σ."><div class="k">Avg your points</div><div class="v" style="font-size:22px">${fmt(meanYou)}</div><div class="d">σ ${fmt(sdYou)}</div></div>
-    <div class="stat cyan" title="Tumeken's guardian pets — yours vs the whole team. Independent of purples."><div class="k">Pets (you / team)</div><div class="v" style="font-size:22px">${acc.youPets} / ${acc.teamPets}</div><div class="d">${oneIn(acc.teamPets/n)} team</div></div>
-    <div class="stat green" title="Elite clue scrolls you received (points / 200000 each raid)."><div class="k">Elite clues (you)</div><div class="v" style="font-size:22px">${fmtFull(acc.youClues)}</div><div class="d">${(acc.youClues/n).toFixed(2)}/raid</div></div>
-    <div class="stat" title="How often you were the room MVP (top contributor) — out of ${MVP_ROOMS.length} boss rooms per raid."><div class="k">🏅 MVPs (you)</div><div class="v" style="font-size:22px">${fmtFull(acc.youMVPs)}</div><div class="d">${(acc.youMVPs/n).toFixed(2)}/raid of ${MVP_ROOMS.length}</div></div>
-    <div class="stat red" title="Mean deaths across the team per raid (Poisson). Each death costs max(20% of points, 1000)."><div class="k">Avg deaths/raid</div><div class="v" style="font-size:22px">${avgDeaths.toFixed(2)}</div><div class="d">${pct(acc.deathRaids/n,1)} of raids</div></div>
-    <div class="stat" title="The longest run of consecutive raids in which you received no unique — a feel for variance."><div class="k">Longest dry streak</div><div class="v" style="font-size:22px">${fmtFull(acc.youMaxDry)}</div><div class="d">raids w/o your purple</div></div>
+    <div class="stat purple" title="Every unique the team got across all the raids you ran."><div class="k">Team purples</div><div class="v">${fmtFull(acc.teamPurples)}</div><div class="d">${oneIn(teamRate)} · obs ${pct(teamRate)}</div></div>
+    <div class="stat purple" title="Uniques that landed on you (Player 1), based on your share of the points."><div class="k">Your purples</div><div class="v">${fmtFull(acc.youPurples)}</div><div class="d">${oneIn(youRate)}</div></div>
+    <div class="stat cyan" title="The theory team purple rate per raid. The observed rate should settle onto this; it goes green when it's within 8%."><div class="k">Expected / raid</div><div class="v" style="font-size:22px">${pct(expChance)}</div><div class="d ${Math.abs(teamRate-expChance)<expChance*0.08?'good':''}">theory ${oneIn(expChance)}</div></div>
+    <div class="stat" title="Your average reward points per raid, with the spread (σ) either side."><div class="k">Avg your points</div><div class="v" style="font-size:22px">${fmt(meanYou)}</div><div class="d">σ ${fmt(sdYou)}</div></div>
+    <div class="stat cyan" title="Tumeken's guardian pets, yours vs the whole team. Separate roll from the purple."><div class="k">Pets (you / team)</div><div class="v" style="font-size:22px">${acc.youPets} / ${acc.teamPets}</div><div class="d">${oneIn(acc.teamPets/n)} team</div></div>
+    <div class="stat green" title="Elite clues you picked up (points / 200,000 each raid)."><div class="k">Elite clues (you)</div><div class="v" style="font-size:22px">${fmtFull(acc.youClues)}</div><div class="d">${(acc.youClues/n).toFixed(2)}/raid</div></div>
+    <div class="stat" title="How often you were the room MVP (top contributor), out of ${MVP_ROOMS.length} boss rooms a raid."><div class="k">🏅 MVPs (you)</div><div class="v" style="font-size:22px">${fmtFull(acc.youMVPs)}</div><div class="d">${(acc.youMVPs/n).toFixed(2)}/raid of ${MVP_ROOMS.length}</div></div>
+    <div class="stat red" title="Average deaths across the team per raid (Poisson). Each death costs max(20% of points, 1,000)."><div class="k">Avg deaths/raid</div><div class="v" style="font-size:22px">${avgDeaths.toFixed(2)}</div><div class="d">${pct(acc.deathRaids/n,1)} of raids</div></div>
+    <div class="stat" title="The longest run of raids in a row where you got no unique. A feel for how swingy it is."><div class="k">Longest dry streak</div><div class="v" style="font-size:22px">${fmtFull(acc.youMaxDry)}</div><div class="d">raids w/o your purple</div></div>
   </div>`;
 
   const weights=purpleWeights(rl),totalW=weights.reduce((a,b)=>a+b.weight,0);
@@ -1208,9 +1329,9 @@ function renderBatch(acc,cfg){
     <table class="utable"><thead><tr><th>Item</th><th class="num" title="Drop weight at this raid level">Weight</th><th class="num" title="Times the whole team received it">Team</th><th class="num" title="Times you (Player 1) received it">You</th><th class="num" title="Observed share of team purples">Obs</th><th class="num" title="Expected share from the weights">Exp</th><th class="barcell">Share</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 
   let charts=`<div class="chart-card"><h3>Your reward-point distribution</h3>
-    <div class="csub">${fmtFull(n)} raids · mean ${fmtFull(Math.round(meanYou))} · range ${fmtFull(Math.round(acc.youPtsMin))}–${fmtFull(Math.round(acc.youPtsMax))}</div>
+    <div class="csub">${fmtFull(n)} raids · mean ${fmtFull(Math.round(meanYou))} · range ${fmtFull(Math.round(acc.youPtsMin))} to ${fmtFull(Math.round(acc.youPtsMax))}</div>
     <canvas id="histCanvas" height="170"></canvas></div>`;
-  if(cfg.teamSize>1) charts+=`<div class="chart-card"><h3>Purples by party slot</h3><div class="csub">Where the unique landed — driven by contribution share</div><canvas id="ppCanvas" height="${30+cfg.teamSize*30}"></canvas></div>`;
+  if(cfg.teamSize>1) charts+=`<div class="chart-card"><h3>Purples by party slot</h3><div class="csub">Who the unique landed on, based on each player's share of the points</div><canvas id="ppCanvas" height="${30+cfg.teamSize*30}"></canvas></div>`;
 
   let tert="";
   if(cfg.tertThread||cfg.tertJewel){ tert=`<div class="chart-card"><h3>Tertiary drops (you)</h3><div class="csub">With bad-luck mitigation · ${fmtFull(n)} completions</div><div class="tiles">`;
@@ -1271,13 +1392,16 @@ function runBatch(){
   function step(){
     const end=Math.min(done+chunk,n);
     for(;done<end;done++) accumulate(acc,cfg,env,simulateRaid(cfg,rng));
-    bar.style.width=(done/n*100).toFixed(1)+"%";
+    const p=(done/n*100); bar.style.width=p.toFixed(1)+"%"; bar.setAttribute("aria-valuenow",Math.round(p));
     if(done<n) requestAnimationFrame(step);
     else{ renderBatch(acc,cfg); running=false; runBtn.disabled=false; runBtn.textContent="▶ Simulate"; setTimeout(()=>prog.classList.remove("show"),400); toast(`Simulated ${fmtFull(n)} raids`); }
   }
   requestAnimationFrame(step);
 }
-function switchView(v){document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b.dataset.view===v));document.querySelectorAll(".view").forEach(el=>el.classList.toggle("active",el.id==="view-"+v));}
+function switchView(v){
+  document.querySelectorAll(".tabs button").forEach(b=>{const on=b.dataset.view===v;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false");});
+  document.querySelectorAll(".view").forEach(el=>{const on=el.id==="view-"+v;el.classList.toggle("active",on);el.hidden=!on;});
+}
 let toastT; function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("show"),2200);}
 
 /* ============================================================================
@@ -1286,49 +1410,49 @@ let toastT; function toast(m){const t=document.getElementById("toast");t.textCon
 function buildMechanicsDoc(){
   document.getElementById("mechanicsDoc").innerHTML=`
   <h3>The purple roll</h3>
-  <p>Each raid makes one unique roll for the team. You earn a 1% chance for every <code>10,500 − 20·adjRL</code> team reward points; capped at <b>55%</b>. There is <b>no point cap</b> — a high-RL 8-man can exceed 40%.</p>
-  <div class="formula">P(purple) = min( 0.55 , teamPoints / (100·(10500 − 20·adjRL)) )
+  <p>Every raid rolls once for a unique. You get a 1% shot for every <code>10,500 minus 20 times adjRL</code> team reward points, capped at <b>55%</b>. There is <b>no points cap</b> on this, so a high-level 8-man can sit above 40%.</p>
+  <div class="formula">P(purple) = min( 0.55 , teamPoints / (100 × (10500 − 20 × adjRL)) )
 
 adjRL = RL                          (RL ≤ 310)
       = 310 + floor((RL−310)/3)     (310 < RL ≤ 430)
       = 350 + floor((RL−430)/6)     (RL > 430)</div>
-  <p>The whole team's points decide <i>whether</i> a purple drops; <i>who</i> gets it is proportional to individual contribution (so an even-split 8-man gives each person 1/8 of the team chance — matching the Wiki's per-person figures).</p>
+  <p>The team's combined points decide <i>whether</i> a purple drops. <i>Who</i> gets it is split by how much each player contributed, so an even 8-man gives everyone 1/8 of the team chance. That lines up with the Wiki's per-person numbers.</p>
 
   <h3>Which unique?</h3>
-  <p>When a purple drops, the item is weighted (base total 240): Fang 70, Lightbearer 70, Ward 30, Masori mask/body/chaps 20 each, Tumeken's shadow 10. At RL 350/400/450/500 the Fang &amp; Lightbearer weights drop, raising everyone else (RL 400 → shadow 10/190 = <b>1/19</b>). Each item also has a level requirement (shadow/Masori/ward 150, fang/lightbearer 50); below it the item's rate is divided by 50.</p>
+  <p>When a purple drops, the item is picked by weight (base total 240): Fang 70, Lightbearer 70, Ward 30, Masori mask/body/chaps 20 each, Tumeken's shadow 10. At RL 350, 400, 450 and 500 the Fang and Lightbearer weights drop and everything else gets more common (at RL 400 the shadow is 10/190, so <b>1/19</b>). Each item also has a level requirement (shadow, Masori and ward need 150; fang and lightbearer need 50). Below that, the item's rate is divided by 50.</p>
 
-  <h3>Pet — Tumeken's guardian</h3>
-  <div class="formula">P(pet, team) = teamPoints / (100·(350000 − 700·adjRLpet))
-adjRLpet = RL (≤400) ; 400+floor((RL−400)/3) (≤550) ; capped 450</div>
-  <p>The pet roll is <b>fully independent</b> of the purple roll: in a single raid a player can receive <i>both</i> a unique and the pet, the pet alone with no unique, or neither. The two are rolled and assigned separately.</p>
+  <h3>Pet: Tumeken's guardian</h3>
+  <div class="formula">P(pet, team) = teamPoints / (100 × (350000 − 700 × adjRLpet))
+adjRLpet = RL (≤400) ; 400+floor((RL−400)/3) (≤550) ; capped at 450</div>
+  <p>The pet roll is its own thing, separate from the purple. In one raid a player can get both a unique and the pet, just the pet with no unique, or nothing. They're rolled and handed out separately.</p>
 
   <h3>Elite clue scroll</h3>
   <div class="formula">P(clue, per person) = personalPoints / 200000</div>
 
   <h3>Deaths</h3>
-  <p>Each death removes <b>max(20% of current points, 1,000)</b>. Modeled as Poisson with your chosen mean.</p>
+  <p>Every death wipes <b>max(20% of your current points, 1,000)</b>. Deaths are rolled as a Poisson process around the average you set.</p>
 
   <h3>The points engine</h3>
-  <p>Reproduced from the Wiki loot module. Every boss/NPC contributes points from its scaled HP:</p>
-  <div class="formula">scaled_hp = floor( base_hp · (1 + RL/250) · teamScale[n] )
-points    = floor( scaled_hp · multiplier ) · count</div>
-  <p>Team-size scale: <code>1.0 / 1.9 / 2.8 / 3.4 / 4.0 / 4.6 / 5.2 / 5.8</code>. Bosses: Akkha 480×1.0, Akkha's shadows 70×1.0 ×4, Ba-Ba 380×2.0, Zebak 580×1.5, Kephri 130×1.0, P1 Obelisk 260×1.5, <b>P2 Wardens 140×2.0 ×(downs)</b>, P3 Warden 880×2.5. Challenge rooms add a flat 3,850 per team member.</p>
-  <p>A <b>completeness factor of ${K_BOSS}</b> on the boss points accounts for path-level HP scaling and minor adds (scarabs, baboons) not individually modeled; it is calibrated so RL 450 / 8-man / 2-down = <b>146,294</b> team points, exactly the Wiki calculator's value. The <b>downs</b> control is the literal P2 Warden cycle count — 3-down adds one more 140-HP pool (≈ +3% points, as the Wiki notes); 8-down is the theoretical max.</p>
+  <p>Lifted from the Wiki loot module. Every boss and add gives points off its scaled HP:</p>
+  <div class="formula">scaled_hp = floor( base_hp × (1 + RL/250) × teamScale[n] )
+points    = floor( scaled_hp × multiplier ) × count</div>
+  <p>Team-size scale: <code>1.0 / 1.9 / 2.8 / 3.4 / 4.0 / 4.6 / 5.2 / 5.8</code>. Bosses: Akkha 480×1.0, Akkha's shadows 70×1.0 ×4, Ba-Ba 380×2.0, Zebak 580×1.5, Kephri 130×1.0, P1 Obelisk 260×1.5, <b>P2 Wardens 140×2.0 ×(downs)</b>, P3 Warden 880×2.5. Challenge rooms add a flat 3,850 per player.</p>
+  <p>A <b>completeness factor of ${K_BOSS}</b> on the boss points covers path-level HP scaling and small adds (scarabs, baboons) that aren't modelled one by one. It's tuned so RL 450, 8-man, 2-down lands on <b>146,294</b> team points, the exact number the Wiki calculator gives. The <b>downs</b> control is literally the P2 Warden cycle count: 3-down adds one more 140-HP bar (about +3% points, as the Wiki notes), and 8-down is the theoretical cap.</p>
 
   <h3>MVP bonuses</h3>
-  <p>Each of the four boss rooms (Akkha, Ba-Ba, Kephri, Zebak) awards an <b>MVP bonus</b> to its top contributor — a pool of <code>2,700 × team&nbsp;size</code> points split across the four rooms. The Wiki's per-person estimate assumes this splits evenly (2,700 each), but in a real raid MVPs <b>concentrate on carries</b>, raising their individual purple odds. The Monte-Carlo awards each room's MVP to the player with the best (skill × random) roll that room, while keeping the team total identical — so the team-wide chance is unchanged but <i>who</i> gets the purple shifts toward the MVP earner.</p>
+  <p>Each of the four boss rooms (Akkha, Ba-Ba, Kephri, Zebak) hands its top contributor an <b>MVP bonus</b>, a pool of <code>2,700 × team size</code> points split across the four rooms. The Wiki's per-person estimate spreads that evenly (2,700 each), but in a real raid the MVPs pile onto the carries and bump their purple odds. The simulator gives each room's MVP to whoever rolls best (skill times a bit of luck) while keeping the team total the same, so the team chance doesn't move but who lands the purple shifts toward the MVP.</p>
 
-  <h3>Team composition &amp; player skill</h3>
-  <p>Each player is given a <b>persistent skill</b> for the raid, drawn from the chosen composition: <b>Coordinated</b> (everyone similar), <b>Mixed</b> (pros &amp; noobs), <b>PUG mass</b> (random strangers, wide spread), <b>You carry</b>, or <b>You leech</b>. That single skill value drives <i>both</i> a player's point contribution <i>and</i> their MVP weight in every room — so a strong player tends to MVP several rooms rather than winning each as an independent coin-flip. This is why a carry sees both more MVPs and a larger slice of the team's purples. Solo raids ignore composition (you are always MVP of all four rooms).</p>
+  <h3>Team composition and player skill</h3>
+  <p>Each player gets a <b>skill</b> for the raid based on the composition you pick: <b>Coordinated</b> (everyone similar), <b>Mixed</b> (pros and noobs), <b>PUG mass</b> (random strangers, big gap), <b>You carry</b>, or <b>You leech</b>. That one number sets both their share of the points <i>and</i> their MVP odds in every room, so a strong player MVPs a few rooms instead of each room being a fresh coin-flip. That's why a carry pulls both more MVPs and a bigger slice of the purples. Solo raids ignore this since you MVP all four rooms anyway.</p>
 
-  <h3>Mutually-exclusive invocations</h3>
-  <p>The builder mirrors the in-game rules: the <b>Attempts</b>, <b>Time limit</b>, <b>Helpful spirit</b>, <b>Path tier</b> (Pathseeker/finder/master) and <b>Overclocked</b> tiers each allow only one selection — picking a new one clears the others, exactly as the game does (e.g. choosing <i>No Help Needed</i> removes <i>Need Some Help?</i>). The Quick-slider presets and the invocation presets are common real-world setups verified to land on their stated raid level.</p>
-  <p style="color:var(--rs-faint)">Point totals are <i>estimates</i> (the Wiki says the same): real totals vary with shield regen, kill speed, Walk-the-Path order, trap failures, deaths and RuneScript integer truncation. The probability formulas, however, are exact — feed them your true point total for an exact chance.</p>
+  <h3>Invocations that swap or stack</h3>
+  <p>The builder follows the in-game rules. The <b>Attempts</b>, <b>Time limit</b>, <b>Helpful spirit</b> and <b>Path tier</b> (Pathseeker, Pathfinder, Pathmaster) groups only let you pick one, so choosing a new one drops the old (picking No Help Needed clears Need Some Help, a faster time clears a slower one). The Wardens slam-speed line stacks instead: Overclocked 2 needs Overclocked on, and Insanity needs both. Turn off a requirement and anything depending on it switches off too. Every preset is a common real setup checked to land on its stated raid level.</p>
+  <p style="color:var(--rs-faint)">Point totals are estimates, just like the Wiki says. Real totals wobble with shield regen, kill speed, Walk the Path order, trap fails, deaths and RuneScript rounding. The chance formulas above are exact though, so if you know your real point total you can read off the exact odds.</p>
 
-  <h3>Reproducibility</h3>
-  <p>All randomness uses one seeded PRNG (mulberry32). Type a number or word in <span class="kbd">Seed</span> to reproduce a run exactly; blank = fresh seed.</p>
+  <h3>Repeatable runs</h3>
+  <p>Everything random comes from one seeded generator (mulberry32). Put a number or word in the <span class="kbd">Seed</span> box to replay a run exactly, or leave it blank for a fresh one each time.</p>
 
-  <p style="margin-top:18px;color:var(--rs-faint)">Sources: OSRS Wiki — <a href="https://oldschool.runescape.wiki/w/Tombs_of_Amascut" target="_blank" rel="noopener">Tombs of Amascut</a>, <a href="https://oldschool.runescape.wiki/w/Chest_(Tombs_of_Amascut)" target="_blank" rel="noopener">Chest</a>, <a href="https://oldschool.runescape.wiki/w/Calculator:Tombs_of_Amascut_loot" target="_blank" rel="noopener">loot calculator</a>, <a href="https://oldschool.runescape.wiki/w/Invocations" target="_blank" rel="noopener">Invocations</a>.</p>`;
+  <p style="margin-top:18px;color:var(--rs-faint)">Sources, all OSRS Wiki: <a href="https://oldschool.runescape.wiki/w/Tombs_of_Amascut" target="_blank" rel="noopener">Tombs of Amascut</a>, <a href="https://oldschool.runescape.wiki/w/Chest_(Tombs_of_Amascut)" target="_blank" rel="noopener">Chest</a>, <a href="https://oldschool.runescape.wiki/w/Calculator:Tombs_of_Amascut_loot" target="_blank" rel="noopener">loot calculator</a>, <a href="https://oldschool.runescape.wiki/w/Invocations" target="_blank" rel="noopener">Invocations</a>.</p>`;
 }
 
 /* ============================================================================
@@ -1338,11 +1462,32 @@ function init(){
   buildTeamPips(); buildDownsPips(); buildInvocations(); buildInvPresets(); wireControls(); buildMechanicsDoc();
   refreshDerived(); renderExpected();
   document.getElementById("nRaidsLab").textContent=fmtFull(nRaidsFromSlider(state.nRaidsExp));
-  document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>switchView(b.dataset.view));
-  document.querySelectorAll(".panel.collapsible > h2").forEach(h=>h.onclick=()=>h.parentElement.classList.toggle("collapsed"));
+  const tabBtns=[...document.querySelectorAll('.tabs button')];
+  tabBtns.forEach((b,i)=>{
+    b.onclick=()=>switchView(b.dataset.view);
+    b.onkeydown=e=>{ // arrow-key navigation between tabs, per WAI-ARIA tabs pattern
+      let j=null;
+      if(e.key==="ArrowRight"||e.key==="ArrowDown") j=(i+1)%tabBtns.length;
+      else if(e.key==="ArrowLeft"||e.key==="ArrowUp") j=(i-1+tabBtns.length)%tabBtns.length;
+      else if(e.key==="Home") j=0; else if(e.key==="End") j=tabBtns.length-1;
+      if(j!==null){ e.preventDefault(); tabBtns[j].focus(); switchView(tabBtns[j].dataset.view); }
+    };
+  });
+  document.querySelectorAll(".panel.collapsible > h2").forEach(h=>{
+    h.setAttribute("role","button"); h.tabIndex=0;
+    h.setAttribute("aria-expanded", h.parentElement.classList.contains("collapsed")?"false":"true");
+    const toggle=()=>{ const c=h.parentElement.classList.toggle("collapsed"); h.setAttribute("aria-expanded",c?"false":"true"); };
+    h.onclick=toggle;
+    h.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggle(); } };
+  });
   document.getElementById("runOneBtn").onclick=runOne;
   document.getElementById("runBtn").onclick=runBatch;
-  document.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.target.matches("input,select,textarea,button"))runBatch();});
+  // Enter anywhere (except form fields / widgets) runs a batch
+  document.addEventListener("keydown",e=>{
+    if(e.key!=="Enter"||e.defaultPrevented) return;
+    if(e.target.closest('input,select,textarea,button,a,[role="checkbox"],[role="tab"],[role="button"]')) return;
+    runBatch();
+  });
 }
 document.addEventListener("DOMContentLoaded",init);
 </script>
