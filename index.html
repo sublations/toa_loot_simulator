@@ -351,19 +351,35 @@ canvas{display:block;width:100%}
 .verdict.purple{background:linear-gradient(180deg,rgba(210,100,255,.24),rgba(210,100,255,.08));border:1px solid var(--rs-purple-lo);color:#eecaff;box-shadow:0 0 20px rgba(155,48,224,.35),inset 1px 1px 0 rgba(255,255,255,.1)}
 .verdict.plain{background:#1a160d;border:1px solid var(--rs-border);color:var(--rs-dim);box-shadow:inset 1px 1px 0 #000}
 
-.players{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:11px;margin-bottom:14px}
-.pcard{background:linear-gradient(180deg,#322b1d,#252013);border:1px solid var(--rs-border);border-radius:3px;box-shadow:inset 1px 1px 0 rgba(110,97,73,.35),inset -1px -1px 0 #000;padding:11px}
+.players{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-bottom:14px}
+.pcard{background:linear-gradient(180deg,#322b1d,#252013);border:1px solid var(--rs-border);border-radius:3px;box-shadow:inset 1px 1px 0 rgba(110,97,73,.35),inset -1px -1px 0 #000;padding:11px;display:flex;flex-direction:column}
 .pcard.win{border-color:var(--rs-purple-lo);box-shadow:0 0 0 1px var(--rs-purple-lo),0 0 16px rgba(155,48,224,.25)}
-.pcard .ph{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.pcard.pet{border-color:#3c9b55}
+.pcard .ph{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:8px}
 .pcard .ph .name{font-family:var(--font-bold);font-size:15px;color:var(--rs-orange)}
 .pcard .ph .name.you{color:var(--rs-yellow)}
-.pcard .ph .tag{font-family:var(--font-sm);font-size:12px;padding:2px 7px;border-radius:2px;background:var(--rs-bevel-lo);color:var(--rs-dim)}
+.pcard .ph .tags{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.pcard .ph .tag{font-family:var(--font-sm);font-size:12px;padding:2px 7px;border-radius:2px;background:var(--rs-bevel-lo);color:var(--rs-dim);white-space:nowrap}
 .pcard .ph .tag.win{background:var(--rs-purple-lo);color:#fff}
+.pcard .ph .tag.petc{background:#2f6b40;color:#d6ffe2}
+.pcard .ph .tag.mvp{background:#6b561f;color:var(--rs-yellow)}
 .pcard .ph .tag.dead{background:#5a1f14;color:#ffb4a6}
 .pcard .row{display:flex;justify-content:space-between;font-size:14px;padding:2px 0;color:var(--rs-dim)}
 .pcard .row b{color:var(--rs-white);font-family:var(--font-bold);font-weight:normal;font-variant-numeric:tabular-nums}
 .pcard .share{height:7px;background:#15110a;border:1px solid var(--rs-border);border-radius:2px;margin:7px 0 1px;overflow:hidden;box-shadow:inset 1px 1px 0 #000}
 .pcard .share .f{height:100%;background:linear-gradient(90deg,#c8941f,var(--rs-yellow))}
+/* each player's own loot, inventory style */
+.pcard .ploot-h{font-family:var(--font-sm);font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--rs-faint);margin:9px 0 6px;padding-top:9px;border-top:1px solid var(--rs-bevel-lo)}
+.pcard .ploot{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:5px;margin-top:auto}
+.pcard .ploot .tile{padding:6px 3px 4px}
+.pcard .ploot .tile .ic{width:30px;height:30px;margin-bottom:3px}
+.pcard .ploot .tile .ic img{max-width:30px;max-height:30px}
+.pcard .ploot .tile .ic .fallback{width:26px;height:26px;font-size:14px}
+.pcard .ploot .tile .nm{font-size:10px;min-height:18px;line-height:1.1}
+.pcard .ploot .tile .qty{font-size:12px;top:2px;right:4px}
+.sample-note{background:#1a160d;border:1px solid var(--rs-border);border-left:3px solid var(--rs-orange);border-radius:3px;
+  box-shadow:inset 1px 1px 0 #000;padding:9px 13px;margin-bottom:12px;font-size:13px;color:var(--rs-dim);font-family:var(--font-sm)}
+.sample-note b{color:var(--rs-orange)}
 
 .loot-section h4{font-family:var(--font-bold);font-size:14px;text-transform:uppercase;letter-spacing:.4px;color:var(--rs-orange);margin:16px 0 9px;display:flex;align-items:center;gap:8px}
 .loot-section h4::after{content:"";flex:1;height:2px;background:linear-gradient(90deg,var(--rs-bevel-lo),transparent)}
@@ -1229,56 +1245,72 @@ function renderExpected(){
 /* ============================================================================
    SINGLE RAID VIEW
    ========================================================================== */
-function renderSingle(res,cfg){
+function renderSingle(res,cfg,opts){
+  opts=opts||{};
   document.getElementById("singleEmpty").style.display="none";
   const el=document.getElementById("singleResult");
-  let v;
-  if(res.purple) v=`<div class="verdict purple">✦ PURPLE! ${res.players[res.purple.winnerIdx].name} received ${res.purple.item.name}</div>`;
-  else v=`<div class="verdict plain">No unique this raid</div>`;
-  let petBadge=res.pet?`<div class="verdict purple" style="color:#bfffd0;border-color:#3c9b55;box-shadow:0 0 18px rgba(60,155,85,.35)">🐤 PET! ${res.players[res.pet.winnerIdx].name} got Tumeken's guardian</div>`:"";
+
+  const note=opts.note?`<div class="sample-note">${opts.note}</div>`:"";
+
+  // top verdict banners
+  let v = res.purple
+    ? `<div class="verdict purple">✦ PURPLE! ${res.players[res.purple.winnerIdx].name} got the ${res.purple.item.name}</div>`
+    : `<div class="verdict plain">No unique this raid</div>`;
+  let petBadge=res.pet?`<div class="verdict purple" style="color:#d6ffe2;border-color:#3c9b55;box-shadow:0 0 18px rgba(60,155,85,.35)">🐤 PET! ${res.players[res.pet.winnerIdx].name} got Tumeken's guardian</div>`:"";
 
   let head=`<div class="chest-head">${v}${petBadge}
     <div class="stat" style="padding:9px 13px"><div class="k">Team points</div><div class="v" style="font-size:20px">${fmtFull(Math.round(res.teamPoints))}</div></div>
-    <div class="stat purple" style="padding:9px 13px"><div class="k">Purple chance</div><div class="v" style="font-size:20px">${pct(res.chance)}</div><div class="d">${oneIn(res.chance)}</div></div>
+    <div class="stat purple" style="padding:9px 13px" title="Team chance a purple dropped this raid"><div class="k">Purple chance</div><div class="v" style="font-size:20px">${pct(res.chance)}</div><div class="d">${oneIn(res.chance)}</div></div>
+    <div class="stat cyan" style="padding:9px 13px" title="Team chance the pet dropped this raid"><div class="k">Pet chance</div><div class="v" style="font-size:20px">${pct(res.petChance,3)}</div><div class="d">${oneIn(res.petChance)}</div></div>
   </div>`;
 
+  // one card per player, each with their OWN loot
+  const teamCommon={};   // for the team-total roll-up at the bottom
+  let teamClues=0;
   let pc=`<div class="players">`;
   for(const p of res.players){
     const share=res.teamPoints>0?p.points/res.teamPoints:0;
-    pc+=`<div class="pcard ${p.won?'win':''}">
+    teamClues+=p.clues;
+
+    // this player's own loot tiles (their purple, pet, clue, then their common loot)
+    let tiles="";
+    if(p.won) tiles+=`<div class="tile uniq" title="Unique reward">${iconHTML(p.item.file,p.item.emoji)}<div class="nm">${p.item.name}</div></div>`;
+    if(p.pet) tiles+=`<div class="tile pet" title="Pet">${iconHTML(PET.file,PET.emoji)}<div class="nm">${PET.name}</div></div>`;
+    if(p.clues>0) tiles+=`<div class="tile"><div class="qty">${p.clues}</div>${iconHTML(CLUE.file,CLUE.emoji)}<div class="nm">${CLUE.name}</div></div>`;
+    // pool this player's 3 common rolls by item
+    const mine={};
+    for(const c of p.common){ if(!mine[c.name])mine[c.name]={...c,qty:0}; mine[c.name].qty+=c.qty;
+      if(!teamCommon[c.name])teamCommon[c.name]={...c,qty:0}; teamCommon[c.name].qty+=c.qty; }
+    for(const c of Object.values(mine).sort((a,b)=>b.qty-a.qty)) tiles+=`<div class="tile"><div class="qty">${fmt(c.qty)}</div>${iconHTML(c.file,c.emoji)}<div class="nm">${c.name}</div></div>`;
+
+    pc+=`<div class="pcard ${p.won?'win':(p.pet?'pet':'')}">
       <div class="ph"><span class="name ${p.i===0?'you':''}">${p.name}</span>
-        <span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
+        <span class="tags">
         ${p.won?'<span class="tag win">✦ PURPLE</span>':''}
-        ${p.pet?'<span class="tag win" style="background:#3c9b55">🐤 PET</span>':''}
-        ${(!p.won&&!p.pet&&p.deaths>0)?`<span class="tag dead">☠ ${p.deaths}</span>`:''}
+        ${p.pet?'<span class="tag petc">🐤 PET</span>':''}
+        ${p.mvps>0?`<span class="tag mvp">🏅 ${p.mvps}</span>`:''}
+        ${p.deaths>0?`<span class="tag dead">☠ ${p.deaths}</span>`:''}
         </span></div>
       <div class="row"><span>Reward points</span><b>${fmtFull(Math.round(p.points))}</b></div>
-      ${p.mvps>0?`<div class="row"><span>MVP rooms</span><b style="color:var(--rs-yellow)">🏅 ${p.mvps}</b></div>`:''}
-      ${p.deaths>0?`<div class="row"><span>Lost to deaths</span><b style="color:var(--rs-red)">−${fmtFull(Math.round(p.basePts-p.points))}</b></div>`:''}
-      ${p.clues>0?`<div class="row"><span>Elite clues</span><b style="color:var(--rs-green)">${p.clues}</b></div>`:''}
+      ${p.deaths>0?`<div class="row"><span>Lost to deaths</span><b style="color:var(--rs-red)">-${fmtFull(Math.round(p.basePts-p.points))}</b></div>`:''}
       <div class="row"><span>Contribution</span><b>${pct(share,1)}</b></div>
       <div class="share"><div class="f" style="width:${(share*100).toFixed(1)}%"></div></div>
+      <div class="ploot-h">${p.name===res.players[0].name?'Your':p.name+"'s"} loot</div>
+      <div class="ploot">${tiles}</div>
     </div>`;
   }
   pc+=`</div>`;
 
-  let uniq="";
-  const specials=[];
-  if(res.purple) specials.push({file:res.purple.item.file,emoji:res.purple.item.emoji,nm:res.purple.item.name,cls:"uniq"});
-  if(res.pet) specials.push({file:PET.file,emoji:PET.emoji,nm:PET.name,cls:"pet"});
-  if(specials.length){ uniq=`<div class="loot-section"><h4>Unique &amp; pet</h4><div class="tiles">`;
-    for(const s of specials) uniq+=`<div class="tile ${s.cls}">${iconHTML(s.file,s.emoji)}<div class="nm">${s.nm}</div></div>`;
-    uniq+=`</div></div>`; }
+  // team roll-up (only worth showing when there is a team)
+  let teamRoll="";
+  if(res.players.length>1){
+    let t="";
+    if(teamClues>0) t+=`<div class="tile"><div class="qty">${teamClues}</div>${iconHTML(CLUE.file,CLUE.emoji)}<div class="nm">${CLUE.name}</div></div>`;
+    for(const c of Object.values(teamCommon).sort((a,b)=>b.qty-a.qty)) t+=`<div class="tile"><div class="qty">${fmt(c.qty)}</div>${iconHTML(c.file,c.emoji)}<div class="nm">${c.name}</div></div>`;
+    teamRoll=`<div class="loot-section"><h4>Whole-team total</h4><div class="tiles">${t}</div></div>`;
+  }
 
-  // pooled common + clues
-  const pooled={}; let totClues=0;
-  for(const p of res.players){ totClues+=p.clues; for(const c of p.common){ if(!pooled[c.name])pooled[c.name]={...c,qty:0}; pooled[c.name].qty+=c.qty; } }
-  let common=`<div class="loot-section"><h4>Common loot, whole team (3 rolls each)</h4><div class="tiles">`;
-  if(totClues>0) common+=`<div class="tile"><div class="qty">${totClues}</div>${iconHTML(CLUE.file,CLUE.emoji)}<div class="nm">${CLUE.name}</div></div>`;
-  for(const c of Object.values(pooled).sort((a,b)=>b.qty-a.qty)) common+=`<div class="tile"><div class="qty">${fmt(c.qty)}</div>${iconHTML(c.file,c.emoji)}<div class="nm">${c.name}</div></div>`;
-  common+=`</div></div>`;
-
-  el.innerHTML=head+pc+uniq+common;
+  el.innerHTML=note+head+pc+teamRoll;
 }
 
 /* ============================================================================
@@ -1394,7 +1426,12 @@ function runBatch(){
     for(;done<end;done++) accumulate(acc,cfg,env,simulateRaid(cfg,rng));
     const p=(done/n*100); bar.style.width=p.toFixed(1)+"%"; bar.setAttribute("aria-valuenow",Math.round(p));
     if(done<n) requestAnimationFrame(step);
-    else{ renderBatch(acc,cfg); running=false; runBtn.disabled=false; runBtn.textContent="▶ Simulate"; setTimeout(()=>prog.classList.remove("show"),400); toast(`Simulated ${fmtFull(n)} raids`); }
+    else{
+      renderBatch(acc,cfg);
+      // drop one example raid into the Loot breakdown so that tab isn't empty after a batch
+      renderSingle(simulateRaid(cfg,rng),cfg,{note:`Example raid drawn from this batch of <b>${fmtFull(n)}</b>. Hit <b>Run 1 raid</b> for a fresh single roll.`});
+      running=false; runBtn.disabled=false; runBtn.textContent="▶ Simulate"; setTimeout(()=>prog.classList.remove("show"),400); toast(`Simulated ${fmtFull(n)} raids`);
+    }
   }
   requestAnimationFrame(step);
 }
