@@ -298,11 +298,15 @@ input[type=checkbox]{width:auto;accent-color:#a07a2a;vertical-align:-2px;transfo
 canvas{display:block;width:100%}
 
 .utable{width:100%;border-collapse:collapse;font-size:14px}
-.utable th{text-align:left;padding:7px 9px;color:var(--rs-faint);font-family:var(--font-sm);font-size:13px;text-transform:uppercase;letter-spacing:.3px;border-bottom:2px solid var(--rs-bevel-lo)}
-.utable td{padding:8px 9px;border-bottom:1px solid var(--rs-bevel-lo);color:var(--rs-dim);vertical-align:middle}
+.utable th{text-align:left;padding:7px 10px;color:var(--rs-faint);font-family:var(--font-sm);font-size:13px;text-transform:uppercase;letter-spacing:.3px;border-bottom:2px solid var(--rs-bevel-lo);white-space:nowrap}
+.utable th.num{text-align:right}
+.utable th[title]{cursor:help;border-bottom-style:dashed}
+.utable td{padding:8px 10px;border-bottom:1px solid var(--rs-bevel-lo);color:var(--rs-dim);vertical-align:middle}
 .utable tr:last-child td{border-bottom:none}
 .utable tr.uniqrow:hover{background:rgba(255,152,31,.05)}
 .utable td.it{display:flex;align-items:center;gap:10px;color:var(--rs-white)}
+.utable td.it a{color:inherit;text-decoration:none;border-bottom:1px dotted rgba(240,230,210,.30)}
+.utable td.it a:hover{color:var(--rs-yellow);border-bottom-color:currentColor}
 .utable td.it.pur{color:var(--rs-purple)}
 .utable td.it .mini{width:30px;height:28px;display:grid;place-items:center;flex:0 0 auto}
 .utable td.it .mini img{max-width:30px;max-height:28px}
@@ -424,11 +428,11 @@ canvas{display:block;width:100%}
       <h2><span class="i">⚙️</span> Raid Level <span class="count" id="rlModeCount"></span></h2>
       <div class="body">
         <div class="rl-readout">
-          <div class="big" id="rlBig">400</div>
+          <div class="big" id="rlBig" title="Your raid level — the sum of all active invocation points.">400</div>
           <div class="meta">
-            <div><b>Adjusted:</b> <span class="v" id="rlAdj">340</span> · <b>Pts/1%:</b> <span class="v" id="rlDenom">3,700</span></div>
+            <div title="Raid level after diminishing returns (above 310, then 430). Drives the purple denominator."><b>Adjusted:</b> <span class="v" id="rlAdj">340</span> · <span title="Reward points needed for each 1% of unique chance: 10,500 − 20 × adjusted RL."><b>Pts/1%:</b> <span class="v" id="rlDenom">3,700</span></span></div>
             <div><b>Per-1% purple</b> uses diminishing-returns RL</div>
-            <div><b>Est. team points:</b> <span class="v" id="rlEstPts">—</span></div>
+            <div title="Estimated combined team reward points at this raid level, team size & downs."><b>Est. team points:</b> <span class="v" id="rlEstPts">—</span></div>
           </div>
         </div>
         <div class="seg" id="rlMode" style="margin-bottom:12px">
@@ -604,7 +608,7 @@ function purpleWeights(rl){
 }
 
 const PET={name:"Tumeken's guardian",file:"Tumeken%27s_guardian.png",emoji:"🐤"};
-const CLUE={name:"Clue scroll (elite)",file:"Clue_scroll_%28Elite%29.png",emoji:"📜"};
+const CLUE={name:"Clue scroll (elite)",file:"Clue_scroll_%28elite%29.png",emoji:"📜"};
 
 const COMMON=[
   {name:"Coins",div:1,file:"Coins_10000.png",emoji:"🪙"},
@@ -934,6 +938,8 @@ function getRng(){ const raw=document.getElementById("seed").value.trim(); let s
    ========================================================================== */
 function iconHTML(file,emoji,cls){cls=cls||"";return `<span class="ic ${cls}"><img src="${WIKI_IMG}${file}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;fallback&quot;>${emoji}</span>'"/></span>`;}
 function miniIconHTML(file,emoji){return `<span class="mini"><img src="${WIKI_IMG}${file}" alt="" loading="lazy" onerror="this.outerHTML='${emoji}'"/></span>`;}
+const wikiUrl=name=>"https://oldschool.runescape.wiki/w/"+encodeURIComponent(name.replace(/ /g,"_"));
+const wlink=name=>`<a href="${wikiUrl(name)}" target="_blank" rel="noopener" title="Open “${name}” on the OSRS Wiki ↗">${name}</a>`;
 const fmt=n=>n>=1e9?(n/1e9).toFixed(2)+"B":n>=1e6?(n/1e6).toFixed(n>=1e7?1:2)+"M":n>=1e4?Math.round(n/1e3)+"K":n>=1000?(Math.round(n/100)/10)+"K":Math.round(n).toLocaleString();
 const fmtFull=n=>Math.round(n).toLocaleString();
 const pct=(x,d=2)=>(x*100).toFixed(d)+"%";
@@ -1034,10 +1040,10 @@ function renderExpected(){
 
   // stat cards
   let cards=`<div class="stat-grid">
-    <div class="stat"><div class="k">Team points (est.)</div><div class="v">${fmt(expTeam)}</div><div class="d">${fmtFull(Math.round(perPerson))} / person · ${downs}-down</div></div>
-    <div class="stat purple"><div class="k">Team purple chance</div><div class="v">${pct(teamPurp)}</div><div class="d">${oneIn(teamPurp)} raids</div></div>
-    <div class="stat cyan"><div class="k">Team pet chance</div><div class="v" style="font-size:22px">${pct(teamPet,3)}</div><div class="d">${oneIn(teamPet)} raids</div></div>
-    <div class="stat green"><div class="k">Elite clue / person</div><div class="v" style="font-size:22px">${pct(personalClue(perPerson),2)}</div><div class="d">${oneIn(personalClue(perPerson))}</div></div>
+    <div class="stat" title="Estimated combined reward points for the whole team, from the Wiki HP-based engine (no deaths).&#10;Each player ≈ this ÷ team size on an even split."><div class="k">Team points (est.)</div><div class="v">${fmt(expTeam)}</div><div class="d">${fmtFull(Math.round(perPerson))} / person · ${downs}-down</div></div>
+    <div class="stat purple" title="Chance at least one player in the team gets a unique this raid.&#10;= min(55%, teamPoints / (100 × (10500 − 20 × adjRL)))"><div class="k">Team purple chance</div><div class="v">${pct(teamPurp)}</div><div class="d">${oneIn(teamPurp)} raids</div></div>
+    <div class="stat cyan" title="Chance the team gets Tumeken's guardian (pet) this raid — rolled independently of the purple.&#10;= teamPoints / (100 × (350000 − 700 × adjRLpet))"><div class="k">Team pet chance</div><div class="v" style="font-size:22px">${pct(teamPet,3)}</div><div class="d">${oneIn(teamPet)} raids</div></div>
+    <div class="stat green" title="Your personal elite clue chance per raid.&#10;= personalPoints / 200000"><div class="k">Elite clue / person</div><div class="v" style="font-size:22px">${pct(personalClue(perPerson),2)}</div><div class="d">${oneIn(personalClue(perPerson))}</div></div>
   </div>`;
 
   // unique table (per person, like wiki)
@@ -1045,8 +1051,8 @@ function renderExpected(){
   let rows="";
   for(const it of rates){
     const supp=rl<it.level;
-    rows+=`<tr class="uniqrow">
-      <td class="it pur">${miniIconHTML(it.file,it.emoji)} ${it.name}${supp?' <span style="color:var(--rs-red);font-size:12px">×1/50</span>':''}</td>
+    rows+=`<tr class="uniqrow" title="${it.name}: weight ${it.weight} of ${ws}${supp?` — suppressed ×1/50 below RL ${it.level}`:''}">
+      <td class="it pur">${miniIconHTML(it.file,it.emoji)} ${wlink(it.name)}${supp?' <span style="color:var(--rs-red);font-size:12px">×1/50</span>':''}</td>
       <td class="num dim">${it.weight}</td>
       <td class="num">${pct(it.rate/n,4)}</td>
       <td class="num cy">${oneIn(it.rate/n)}</td>
@@ -1055,13 +1061,19 @@ function renderExpected(){
   }
   const totUnique=rates.reduce((a,b)=>a+b.rate,0);
   let utable=`<div class="chart-card"><h3>Average rewards per person</h3>
-    <div class="csub">Analytical odds at RL ${rl}, team ${n}, ${downs}-down, ${EFF[cfg.eff].l} — mirrors the Wiki's loot calculator (even split assumed). Weights total ${ws}.</div>
-    <table class="utable"><thead><tr><th>Unique</th><th class="num">Weight</th><th class="num">Per person</th><th class="num">≈ 1 in</th><th class="num">Team</th></tr></thead>
+    <div class="csub">Analytical odds at RL ${rl}, team ${n}, ${downs}-down, ${EFF[cfg.eff].l} — mirrors the <a href="https://oldschool.runescape.wiki/w/Calculator:Tombs_of_Amascut_loot" target="_blank" rel="noopener">Wiki's loot calculator</a> (even split assumed). Weights total ${ws}.</div>
+    <table class="utable"><thead><tr>
+      <th>Unique</th>
+      <th class="num" title="Relative drop weight at this raid level (out of ${ws})">Weight</th>
+      <th class="num" title="Your individual chance per raid, assuming an even points split">Per person</th>
+      <th class="num" title="Average number of raids between drops, per person">≈ 1 in</th>
+      <th class="num" title="Chance that someone in the whole team receives it">Team</th>
+    </tr></thead>
     <tbody>${rows}
-      <tr class="uniqrow"><td class="it">${miniIconHTML(PET.file,PET.emoji)} ${PET.name} <span style="color:var(--rs-faint);font-size:12px">(pet)</span></td><td class="num dim">—</td><td class="num">${pct(teamPet/n,4)}</td><td class="num cy">${oneIn(teamPet/n)}</td><td class="num dim">${pct(teamPet,3)}</td></tr>
-      <tr class="uniqrow"><td class="it">${miniIconHTML(CLUE.file,CLUE.emoji)} ${CLUE.name}</td><td class="num dim">—</td><td class="num">${pct(personalClue(perPerson),3)}</td><td class="num cy">${oneIn(personalClue(perPerson))}</td><td class="num dim">${pct(Math.min(1,expTeam/CLUE_DENOM),2)}</td></tr>
+      <tr class="uniqrow" title="Pet — rolled independently of the purple"><td class="it">${miniIconHTML(PET.file,PET.emoji)} ${wlink(PET.name)} <span style="color:var(--rs-faint);font-size:12px">(pet)</span></td><td class="num dim">—</td><td class="num">${pct(teamPet/n,4)}</td><td class="num cy">${oneIn(teamPet/n)}</td><td class="num dim">${pct(teamPet,3)}</td></tr>
+      <tr class="uniqrow" title="Elite clue — points / 200,000 per person"><td class="it">${miniIconHTML(CLUE.file,CLUE.emoji)} ${wlink(CLUE.name)}</td><td class="num dim">—</td><td class="num">${pct(personalClue(perPerson),3)}</td><td class="num cy">${oneIn(personalClue(perPerson))}</td><td class="num dim">${pct(Math.min(1,expTeam/CLUE_DENOM),2)}</td></tr>
     </tbody>
-    <tfoot><tr><td>Any purple</td><td class="num">${ws}</td><td class="num">${pct(totUnique/n,3)}</td><td class="num cy">${oneIn(totUnique/n)}</td><td class="num">${pct(totUnique,2)}</td></tr></tfoot>
+    <tfoot><tr title="Chance of any unique at all"><td>Any purple</td><td class="num">${ws}</td><td class="num">${pct(totUnique/n,3)}</td><td class="num cy">${oneIn(totUnique/n)}</td><td class="num">${pct(totUnique,2)}</td></tr></tfoot>
     </table></div>`;
 
   // points breakdown by room
@@ -1074,11 +1086,23 @@ function renderExpected(){
   prows+=`<tr class="uniqrow"><td class="it">🏅 MVP bonuses (top contributor each boss room)</td><td class="num dim">×4</td><td class="num dim">to MVP</td><td class="num">${fmtFull(MVP_PER*n)}</td></tr>`;
   let ptable=`<div class="chart-card"><h3>Where the points come from</h3>
     <div class="csub">Wiki HP-based engine: scaled HP = floor(baseHP · (1+RL/250) · teamScale[${n}]=${TEAM_SCALE[n]}), points = floor(HP·mult)·count, ×completeness ${K_BOSS} for paths/adds. MVP points concentrate on carries in actual raids; this even-split estimate gives each player ${fmtFull(MVP_PER)}.</div>
-    <table class="utable"><thead><tr><th>Source</th><th class="num">Base HP</th><th class="num">Mult</th><th class="num">Points</th></tr></thead>
+    <table class="utable"><thead><tr>
+      <th>Source</th>
+      <th class="num" title="Base hit-points before raid-level and team scaling">Base HP</th>
+      <th class="num" title="Points multiplier applied to this source's scaled HP">Mult</th>
+      <th class="num" title="Estimated points contributed to the team total">Points</th>
+    </tr></thead>
     <tbody>${prows}</tbody>
-    <tfoot><tr><td>Estimated team total</td><td></td><td></td><td class="num">${fmtFull(expTeam)}</td></tr></tfoot></table></div>`;
+    <tfoot><tr title="Sum of all sources — matches the Wiki calculator"><td>Estimated team total</td><td></td><td></td><td class="num">${fmtFull(expTeam)}</td></tr></tfoot></table></div>`;
 
-  el.innerHTML=head+cards+utable+ptable;
+  const sources=`<div class="csub" style="margin:0 2px;line-height:1.7">Sources:
+    <a href="https://oldschool.runescape.wiki/w/Chest_(Tombs_of_Amascut)" target="_blank" rel="noopener">Chest mechanics</a> ·
+    <a href="https://oldschool.runescape.wiki/w/Calculator:Tombs_of_Amascut_loot" target="_blank" rel="noopener">loot calculator</a> ·
+    <a href="https://oldschool.runescape.wiki/w/Module:Tombs_of_Amascut_loot" target="_blank" rel="noopener">loot module</a> ·
+    <a href="https://oldschool.runescape.wiki/w/Tumeken%27s_guardian" target="_blank" rel="noopener">pet</a> ·
+    <a href="https://oldschool.runescape.wiki/w/Invocations" target="_blank" rel="noopener">invocations</a>. Full derivations in the Mechanics tab.</div>`;
+
+  el.innerHTML=head+cards+utable+ptable+sources;
 }
 
 /* ============================================================================
@@ -1162,15 +1186,15 @@ function renderBatch(acc,cfg){
   </div>`;
 
   let cards=`<div class="stat-grid">
-    <div class="stat purple"><div class="k">Team purples</div><div class="v">${fmtFull(acc.teamPurples)}</div><div class="d">${oneIn(teamRate)} · obs ${pct(teamRate)}</div></div>
-    <div class="stat purple"><div class="k">Your purples</div><div class="v">${fmtFull(acc.youPurples)}</div><div class="d">${oneIn(youRate)}</div></div>
-    <div class="stat cyan"><div class="k">Expected / raid</div><div class="v" style="font-size:22px">${pct(expChance)}</div><div class="d ${Math.abs(teamRate-expChance)<expChance*0.08?'good':''}">theory ${oneIn(expChance)}</div></div>
-    <div class="stat"><div class="k">Avg your points</div><div class="v" style="font-size:22px">${fmt(meanYou)}</div><div class="d">σ ${fmt(sdYou)}</div></div>
-    <div class="stat cyan"><div class="k">Pets (you / team)</div><div class="v" style="font-size:22px">${acc.youPets} / ${acc.teamPets}</div><div class="d">${oneIn(acc.teamPets/n)} team</div></div>
-    <div class="stat green"><div class="k">Elite clues (you)</div><div class="v" style="font-size:22px">${fmtFull(acc.youClues)}</div><div class="d">${(acc.youClues/n).toFixed(2)}/raid</div></div>
-    <div class="stat"><div class="k">🏅 MVPs (you)</div><div class="v" style="font-size:22px">${fmtFull(acc.youMVPs)}</div><div class="d">${(acc.youMVPs/n).toFixed(2)}/raid of ${MVP_ROOMS.length}</div></div>
-    <div class="stat red"><div class="k">Avg deaths/raid</div><div class="v" style="font-size:22px">${avgDeaths.toFixed(2)}</div><div class="d">${pct(acc.deathRaids/n,1)} of raids</div></div>
-    <div class="stat"><div class="k">Longest dry streak</div><div class="v" style="font-size:22px">${fmtFull(acc.youMaxDry)}</div><div class="d">raids w/o your purple</div></div>
+    <div class="stat purple" title="Total uniques the whole team received across all simulated raids."><div class="k">Team purples</div><div class="v">${fmtFull(acc.teamPurples)}</div><div class="d">${oneIn(teamRate)} · obs ${pct(teamRate)}</div></div>
+    <div class="stat purple" title="Uniques that landed on you (Player 1), driven by your contribution share."><div class="k">Your purples</div><div class="v">${fmtFull(acc.youPurples)}</div><div class="d">${oneIn(youRate)}</div></div>
+    <div class="stat cyan" title="Mean theoretical team purple chance per raid. Observed should converge to this — green when within 8%."><div class="k">Expected / raid</div><div class="v" style="font-size:22px">${pct(expChance)}</div><div class="d ${Math.abs(teamRate-expChance)<expChance*0.08?'good':''}">theory ${oneIn(expChance)}</div></div>
+    <div class="stat" title="Average reward points you earned per raid, with standard deviation σ."><div class="k">Avg your points</div><div class="v" style="font-size:22px">${fmt(meanYou)}</div><div class="d">σ ${fmt(sdYou)}</div></div>
+    <div class="stat cyan" title="Tumeken's guardian pets — yours vs the whole team. Independent of purples."><div class="k">Pets (you / team)</div><div class="v" style="font-size:22px">${acc.youPets} / ${acc.teamPets}</div><div class="d">${oneIn(acc.teamPets/n)} team</div></div>
+    <div class="stat green" title="Elite clue scrolls you received (points / 200000 each raid)."><div class="k">Elite clues (you)</div><div class="v" style="font-size:22px">${fmtFull(acc.youClues)}</div><div class="d">${(acc.youClues/n).toFixed(2)}/raid</div></div>
+    <div class="stat" title="How often you were the room MVP (top contributor) — out of ${MVP_ROOMS.length} boss rooms per raid."><div class="k">🏅 MVPs (you)</div><div class="v" style="font-size:22px">${fmtFull(acc.youMVPs)}</div><div class="d">${(acc.youMVPs/n).toFixed(2)}/raid of ${MVP_ROOMS.length}</div></div>
+    <div class="stat red" title="Mean deaths across the team per raid (Poisson). Each death costs max(20% of points, 1000)."><div class="k">Avg deaths/raid</div><div class="v" style="font-size:22px">${avgDeaths.toFixed(2)}</div><div class="d">${pct(acc.deathRaids/n,1)} of raids</div></div>
+    <div class="stat" title="The longest run of consecutive raids in which you received no unique — a feel for variance."><div class="k">Longest dry streak</div><div class="v" style="font-size:22px">${fmtFull(acc.youMaxDry)}</div><div class="d">raids w/o your purple</div></div>
   </div>`;
 
   const weights=purpleWeights(rl),totalW=weights.reduce((a,b)=>a+b.weight,0);
@@ -1178,10 +1202,10 @@ function renderBatch(acc,cfg){
   let rows="";
   for(const p of weights){ const got=acc.itemCounts[p.name],youGot=acc.youItemCounts[p.name];
     const obs=acc.teamPurples>0?got/acc.teamPurples:0, exp=p.weight/totalW*(rl<p.level?1/50:1);
-    rows+=`<tr class="uniqrow"><td class="it pur">${miniIconHTML(p.file,p.emoji)} ${p.name}</td><td class="num dim">${p.weight}</td><td class="num">${fmtFull(got)}</td><td class="num cy">${fmtFull(youGot)}</td><td class="num">${pct(obs,1)}</td><td class="num dim">${pct(p.weight/totalW,1)}</td><td class="barcell"><div class="minibar"><div class="f" style="width:${(got/maxCount*100).toFixed(1)}%"></div></div></td></tr>`; }
+    rows+=`<tr class="uniqrow" title="${p.name}: weight ${p.weight} of ${totalW}"><td class="it pur">${miniIconHTML(p.file,p.emoji)} ${wlink(p.name)}</td><td class="num dim">${p.weight}</td><td class="num">${fmtFull(got)}</td><td class="num cy">${fmtFull(youGot)}</td><td class="num">${pct(obs,1)}</td><td class="num dim">${pct(p.weight/totalW,1)}</td><td class="barcell"><div class="minibar"><div class="f" style="width:${(got/maxCount*100).toFixed(1)}%"></div></div></td></tr>`; }
   let utable=`<div class="chart-card"><h3>Unique item distribution</h3>
     <div class="csub">Across ${fmtFull(acc.teamPurples)} team purples · expected ratios from RL ${rl} weights (total ${totalW})</div>
-    <table class="utable"><thead><tr><th>Item</th><th class="num">Weight</th><th class="num">Team</th><th class="num">You</th><th class="num">Obs</th><th class="num">Exp</th><th class="barcell">Share</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <table class="utable"><thead><tr><th>Item</th><th class="num" title="Drop weight at this raid level">Weight</th><th class="num" title="Times the whole team received it">Team</th><th class="num" title="Times you (Player 1) received it">You</th><th class="num" title="Observed share of team purples">Obs</th><th class="num" title="Expected share from the weights">Exp</th><th class="barcell">Share</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 
   let charts=`<div class="chart-card"><h3>Your reward-point distribution</h3>
     <div class="csub">${fmtFull(n)} raids · mean ${fmtFull(Math.round(meanYou))} · range ${fmtFull(Math.round(acc.youPtsMin))}–${fmtFull(Math.round(acc.youPtsMax))}</div>
