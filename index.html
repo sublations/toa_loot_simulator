@@ -391,12 +391,18 @@ canvas{display:block;width:100%}
 .tile:hover{filter:brightness(1.15)}
 .tile.uniq{border-color:var(--rs-purple-lo);background:radial-gradient(circle at 50% 22%,rgba(155,48,224,.22),var(--rs-slot-2) 72%);box-shadow:0 0 14px rgba(155,48,224,.28),inset 1px 1px 0 rgba(210,100,255,.2)}
 .tile.pet{border-color:#3c9b55}
+.tile.special{border-color:var(--rs-yellow);background:radial-gradient(circle at 50% 22%,rgba(255,211,78,.18),var(--rs-slot-2) 72%);box-shadow:0 0 12px rgba(255,211,78,.25)}
+.tile.special .nm{color:var(--rs-yellow)}
 .tile .ic{width:42px;height:42px;margin:0 auto 6px;display:grid;place-items:center}
 .tile .ic img{max-width:42px;max-height:42px;image-rendering:auto;filter:drop-shadow(0 2px 2px rgba(0,0,0,.7))}
 .tile .ic .fallback{width:38px;height:38px;border-radius:5px;display:grid;place-items:center;font-size:18px;background:linear-gradient(180deg,#4a3c22,#281f12);border:1px solid var(--rs-bevel-lo)}
 .tile .nm{font-family:var(--font-sm);font-size:12px;line-height:1.2;color:var(--rs-dim);min-height:24px;display:flex;align-items:center;justify-content:center}
 .tile.uniq .nm{color:#eecaff}
-.tile .qty{position:absolute;top:3px;right:6px;font-family:var(--font-bold);font-size:14px;color:var(--rs-yellow-pure);text-shadow:1px 1px 0 #000;font-variant-numeric:tabular-nums}
+/* quantity sits in its own pill, layered above the icon so it never gets hidden */
+.tile .qty{position:absolute;top:3px;right:3px;z-index:2;font-family:var(--font-bold);font-size:13px;line-height:1;
+  color:var(--rs-yellow-pure);text-shadow:1px 1px 0 #000,-1px 0 0 #000,0 -1px 0 #000;font-variant-numeric:tabular-nums;
+  background:rgba(8,6,3,.78);border:1px solid rgba(0,0,0,.6);border-radius:3px;padding:2px 4px;max-width:calc(100% - 6px);overflow:hidden;text-overflow:ellipsis}
+.tile .ic,.tile .nm{position:relative;z-index:1}
 
 /* ============================================================================
    MECHANICS DOC
@@ -578,12 +584,20 @@ canvas{display:block;width:100%}
       <h2><span class="i">💠</span> Tertiary Drops <span class="chev">▾</span></h2>
       <div class="body">
         <label class="field">
+          <div class="lab" id="logLbl">Collection log</div>
+          <div class="seg" id="logMode" role="group" aria-labelledby="logLbl">
+            <button type="button" data-v="owned" class="active">Already unlocked</button>
+            <button type="button" data-v="fresh">Fresh (from scratch)</button>
+          </div>
+          <div class="hint">Most people running these already own the jewels and thread, so the default assumes that: base rates with duplicates allowed. Switch to <b>Fresh</b> to model unlocking them from scratch, with bad-luck mitigation and no duplicates until the set is done.</div>
+        </label>
+        <label class="field">
           <div class="lab" style="cursor:pointer"><span><input type="checkbox" id="tertThread" checked>Thread of Elidinis</span></div>
-          <div class="hint">Base <span class="kbd">1/10</span> → <span class="kbd">3/10</span> by 15 KC (bad-luck mitigation); <span class="kbd">1/50</span> once obtained.</div>
+          <div class="hint">Fresh: <span class="kbd">1/10</span> to <span class="kbd">3/10</span> by 15 KC, then <span class="kbd">1/50</span>. Already unlocked: <span class="kbd">1/50</span> throughout.</div>
         </label>
         <label class="field">
           <div class="lab" style="cursor:pointer"><span><input type="checkbox" id="tertJewel" checked>Keris Partisan jewels</span></div>
-          <div class="hint">Any jewel <span class="kbd">4/50</span> → <span class="kbd">12/50</span> by 75 KC. No duplicates until all four are collected.</div>
+          <div class="hint">Any jewel <span class="kbd">4/50</span>. Fresh ramps to <span class="kbd">12/50</span> by 75 KC with no duplicates until all four are in. Already unlocked: flat <span class="kbd">4/50</span>, duplicates counted.</div>
         </label>
       </div>
     </div>
@@ -724,7 +738,15 @@ const JEWELS=[
   {name:"Breach of the scarab",file:"Breach_of_the_scarab.png",emoji:"🪲"},
   {name:"Eye of the corruptor",file:"Eye_of_the_corruptor.png",emoji:"👁️"},
   {name:"Jewel of the sun",file:"Jewel_of_the_sun.png",emoji:"☀️"},
-  {name:"Cursed phalanx",file:"Cursed_phalanx.png",emoji:"🦴"},
+  {name:"Jewel of amascut",file:"Jewel_of_amascut.png",emoji:"💜"},
+];
+/* Guaranteed one-time unlocks, gated by raid level and a fully deathless raid
+   (zero deaths for the whole party). One per player; you cannot get a second
+   while you still hold one. Source: OSRS Wiki item pages. */
+const SPECIALS=[
+  {name:"Masori crafting kit",   rl:350, pts:1500, file:"Masori_crafting_kit.png",   emoji:"🧵"},
+  {name:"Menaphite ornament kit",rl:425, pts:0,    file:"Menaphite_ornament_kit.png",emoji:"🎀"},
+  {name:"Cursed phalanx",        rl:500, pts:0,    file:"Cursed_phalanx.png",        emoji:"🦴"},
 ];
 
 /* invocations */
@@ -949,14 +971,18 @@ function simulateRaid(cfg,rng){
     pre[best].pts+=roomAward; pre[best].mvps++;
   }
 
-  const players=[]; let teamPoints=0;
+  const players=[]; let teamPoints=0, teamDeaths=0;
   for(let i=0;i<n;i++){
     let pts=pre[i].pts; const base=pts;
     const deaths=poisson(rng,deathRate);
     for(let d=0;d<deaths;d++){ pts-=Math.max(pts*0.2,1000); if(pts<0){pts=0;break;} }
     pts=Math.max(0,pts);
-    players.push({i,name:i===0?"You":("Player "+(i+1)),basePts:base,points:pts,deaths,mvps:pre[i].mvps,won:false,item:null,pet:false,clues:0,common:[]});
-    teamPoints+=pts;
+    players.push({i,name:i===0?"You":("Player "+(i+1)),basePts:base,points:pts,deaths,mvps:pre[i].mvps,won:false,item:null,pet:false,clues:0,common:[],specials:[]});
+    teamPoints+=pts; teamDeaths+=deaths;
+  }
+  // Guaranteed one-time unlocks need a fully deathless raid and a high enough RL.
+  if(teamDeaths===0) for(const p of players){
+    for(const s of SPECIALS){ if(rl>=s.rl && p.points>=s.pts) p.specials.push(s.name); }
   }
   const expTeam=expectedTeamPoints(rl,n,downs,effM);
 
@@ -1009,7 +1035,7 @@ function newBatchAcc(cfg){
     jewelKc:0,jewelCounts:Object.fromEntries(JEWELS.map(j=>[j.name,0])),jewelSet:new Set(),
     commonTotals:{},
     // per-player accumulated loot across the whole batch
-    pp:Array.from({length:cfg.teamSize},()=>({pts:0,purples:0,items:{},pets:0,clues:0,deaths:0,mvps:0,common:{}})),
+    pp:Array.from({length:cfg.teamSize},()=>({pts:0,purples:0,items:{},pets:0,clues:0,deaths:0,mvps:0,common:{},specials:{}})),
   };
 }
 function accumulate(acc,cfg,env,res){
@@ -1036,29 +1062,36 @@ function accumulate(acc,cfg,env,res){
     if(p.won){ a.purples++; a.items[p.item.name]=(a.items[p.item.name]||0)+1; }
     if(p.pet) a.pets++;
     for(const c of p.common) a.common[c.name]=(a.common[c.name]||0)+c.qty;
+    // one-time unlocks: record the first deathless qualifying raid, and how many qualified
+    for(const sn of p.specials){
+      const rec=a.specials[sn]||(a.specials[sn]={owned:false,firstRaid:0,qualifies:0});
+      rec.qualifies++;
+      if(!rec.owned){ rec.owned=true; rec.firstRaid=acc.n; }
+    }
   }
-  // tertiary for "you" w/ bad-luck mitigation
+  // tertiary for "you". "owned" = base rates with duplicates; "fresh" = bad-luck
+  // mitigation that ramps until the item/set is collected.
   if(cfg.tertThread){
     acc.threadKc++;
-    const rate=acc.threadObtained?1/50:(1+2*Math.min(acc.threadKc,15)/15)/10;
+    const rate=(cfg.tertOwned||acc.threadObtained)?1/50:(1+2*Math.min(acc.threadKc,15)/15)/10;
     if(env.rng()<rate){ acc.threadGot++; acc.threadObtained=true; }
   }
   if(cfg.tertJewel){
     acc.jewelKc++;
-    if(acc.jewelSet.size<JEWELS.length){
-      const rate=(4+8*Math.min(acc.jewelKc,75)/75)/50;
+    if(!cfg.tertOwned && acc.jewelSet.size<JEWELS.length){
+      const rate=(4+8*Math.min(acc.jewelKc,75)/75)/50;           // ramps 4/50 -> 12/50, no dupes
       if(env.rng()<rate){ const rem=JEWELS.filter(j=>!acc.jewelSet.has(j.name)); const j=rem[Math.floor(env.rng()*rem.length)]; acc.jewelSet.add(j.name); acc.jewelCounts[j.name]++; }
-    } else if(env.rng()<4/50){ const j=JEWELS[Math.floor(env.rng()*JEWELS.length)]; acc.jewelCounts[j.name]++; }
+    } else if(env.rng()<4/50){ const j=JEWELS[Math.floor(env.rng()*JEWELS.length)]; acc.jewelSet.add(j.name); acc.jewelCounts[j.name]++; }  // flat 4/50, dupes allowed
   }
 }
 
 /* ============================================================================
    STATE
    ========================================================================== */
-const state={teamSize:1,teamComp:"even",rlMode:"manual",rlManual:400,invActive:new Set(),downs:2,eff:"average",cv:12,deathRate:0.10,tertThread:true,tertJewel:true,nRaidsExp:30};
+const state={teamSize:1,teamComp:"even",rlMode:"manual",rlManual:400,invActive:new Set(),downs:2,eff:"average",cv:12,deathRate:0.10,tertThread:true,tertJewel:true,tertOwned:true,nRaidsExp:30};
 const nRaidsFromSlider=v=>v===0?1:Math.max(1,Math.round(Math.pow(10,v/60*6)));
 function currentRL(){ if(state.rlMode==="manual")return state.rlManual; let s=0; for(const nm of state.invActive){const inv=INVOCATIONS.find(x=>x.n===nm); if(inv)s+=inv.p;} return Math.max(0,s); }
-function readCfg(){ return {teamSize:state.teamSize,rl:currentRL(),downs:state.downs,eff:state.eff,cv:state.cv,deathRate:state.deathRate,teamComp:state.teamComp,tertThread:state.tertThread,tertJewel:state.tertJewel}; }
+function readCfg(){ return {teamSize:state.teamSize,rl:currentRL(),downs:state.downs,eff:state.eff,cv:state.cv,deathRate:state.deathRate,teamComp:state.teamComp,tertThread:state.tertThread,tertJewel:state.tertJewel,tertOwned:state.tertOwned}; }
 function getRng(){ const raw=document.getElementById("seed").value.trim(); let seed; if(raw==="")seed=(Math.random()*4294967296)>>>0; else if(/^\d+$/.test(raw))seed=parseInt(raw,10)>>>0; else seed=hashSeed(raw); return makeRng(seed); }
 
 /* ============================================================================
@@ -1153,6 +1186,7 @@ function wireControls(){
   const nr=document.getElementById("nRaids"); nr.oninput=()=>{state.nRaidsExp=+nr.value;const n=nRaidsFromSlider(+nr.value);document.getElementById("nRaidsLab").textContent=fmtFull(n);document.getElementById("nRaidsHint").textContent=n===1?"One raid gives a full single-raid breakdown.":`Runs ${fmtFull(n)} raids and crunches the stats.`;};
   document.getElementById("tertThread").onchange=e=>state.tertThread=e.target.checked;
   document.getElementById("tertJewel").onchange=e=>state.tertJewel=e.target.checked;
+  document.querySelectorAll("#logMode button").forEach(b=>{b.setAttribute("aria-pressed",b.classList.contains("active")?"true":"false");b.onclick=()=>{segSet("#logMode",b);state.tertOwned=b.dataset.v==="owned";};});
   document.getElementById("reseedBtn").onclick=()=>{document.getElementById("seed").value=String((Math.random()*4294967296)>>>0);toast("New random seed set");};
 }
 function refreshDerived(){
@@ -1283,8 +1317,9 @@ function renderSingle(res,cfg,opts){
     const share=res.teamPoints>0?p.points/res.teamPoints:0;
     teamClues+=p.clues;
 
-    // this player's own loot tiles (their purple, pet, clue, then their common loot)
+    // this player's own loot tiles (unlocks, their purple, pet, clue, then common)
     let tiles="";
+    for(const sn of p.specials){ const m=ITEM_META[sn]; tiles+=`<div class="tile special" title="One-time unlock (deathless raid at the required level)">${iconHTML(m.file,m.emoji)}<div class="nm">${sn}</div></div>`; }
     if(p.won) tiles+=`<div class="tile uniq" title="Unique reward">${iconHTML(p.item.file,p.item.emoji)}<div class="nm">${p.item.name}</div></div>`;
     if(p.pet) tiles+=`<div class="tile pet" title="Pet">${iconHTML(PET.file,PET.emoji)}<div class="nm">${PET.name}</div></div>`;
     if(p.clues>0) tiles+=`<div class="tile"><div class="qty">${p.clues}</div>${iconHTML(CLUE.file,CLUE.emoji)}<div class="nm">${CLUE.name}</div></div>`;
@@ -1326,8 +1361,7 @@ function renderSingle(res,cfg,opts){
 
 /* name -> icon metadata, for rendering accumulated loot by item name */
 const ITEM_META={};
-for(const it of COMMON) ITEM_META[it.name]={file:it.file,emoji:it.emoji};
-for(const it of PURPLE_BASE) ITEM_META[it.name]={file:it.file,emoji:it.emoji};
+for(const it of [...COMMON,...PURPLE_BASE,...JEWELS,...SPECIALS]) ITEM_META[it.name]={file:it.file,emoji:it.emoji};
 ITEM_META[CLUE.name]={file:CLUE.file,emoji:CLUE.emoji};
 ITEM_META[PET.name]={file:PET.file,emoji:PET.emoji};
 function lootTile(name,qty,cls){const m=ITEM_META[name]||{file:"",emoji:"❔"};
@@ -1358,13 +1392,21 @@ function renderLootBatch(acc,cfg){
   let pc=`<div class="players">`;
   for(let i=0;i<ts;i++){
     const a=acc.pp[i], name=i===0?"You":("Player "+(i+1));
-    // unique tiles (counts per item), then accumulated common loot
-    let tiles="";
+    // one-time unlocks first (the prestige drops), then uniques, then supplies
+    let tiles=""; const pend=[];
+    for(const s of SPECIALS){
+      if(cfg.rl < s.rl) continue;             // unreachable at this raid level
+      const rec=a.specials[s.name];
+      if(rec&&rec.owned){ const m=ITEM_META[s.name];
+        tiles+=`<div class="tile special" title="Unlocked on raid ${fmtFull(rec.firstRaid)} (${fmtFull(rec.qualifies)} deathless raids qualified)">${iconHTML(m.file,m.emoji)}<div class="nm">${s.name}</div></div>`;
+      } else pend.push(s.name);
+    }
     const itemEntries=Object.entries(a.items).sort((x,y)=>y[1]-x[1]);
     for(const [nm,c] of itemEntries) tiles+=lootTile(nm,c,"uniq");
     if(a.pets>0) tiles+=lootTile(PET.name,a.pets,"pet");
     if(a.clues>0) tiles+=lootTile(CLUE.name,a.clues);
     for(const [nm,q] of Object.entries(a.common).sort((x,y)=>y[1]-x[1])) tiles+=lootTile(nm,q);
+    const pendNote=pend.length?`<div class="row" style="font-size:12px;color:var(--rs-faint)"><span>Still locked</span><span style="text-align:right">${pend.join(", ")}<br><span style="font-size:11px">needs a deathless raid</span></span></div>`:"";
 
     pc+=`<div class="pcard ${a.purples>0?'win':''}">
       <div class="ph"><span class="name ${i===0?'you':''}">${name}</span>
@@ -1377,6 +1419,7 @@ function renderLootBatch(acc,cfg){
       <div class="row"><span>Avg points / raid</span><b>${fmtFull(Math.round(a.pts/n))}</b></div>
       <div class="row"><span>Pets · clues</span><b>${fmtFull(a.pets)} · ${fmtFull(a.clues)}</b></div>
       <div class="row"><span>MVPs · deaths</span><b>${fmtFull(a.mvps)} · ${fmtFull(a.deaths)}</b></div>
+      ${pendNote}
       <div class="ploot-h">${i===0?'Your':name+"'s"} total haul</div>
       <div class="ploot">${tiles||'<span style="color:var(--rs-faint);font-size:12px;padding:4px">no loot</span>'}</div>
     </div>`;
@@ -1447,7 +1490,11 @@ function renderBatch(acc,cfg){
   if(cfg.teamSize>1) charts+=`<div class="chart-card"><h3>Purples by party slot</h3><div class="csub">Who the unique landed on, based on each player's share of the points</div><canvas id="ppCanvas" height="${30+cfg.teamSize*30}"></canvas></div>`;
 
   let tert="";
-  if(cfg.tertThread||cfg.tertJewel){ tert=`<div class="chart-card"><h3>Tertiary drops (you)</h3><div class="csub">With bad-luck mitigation · ${fmtFull(n)} completions</div><div class="tiles">`;
+  if(cfg.tertThread||cfg.tertJewel){
+    const assume=cfg.tertOwned
+      ? `Assuming you <b>already own</b> the thread and jewels: flat base rates, duplicates counted (the count is extras you would bin or alch).`
+      : `Assuming a <b>fresh log</b>: bad-luck mitigation ramps the rate until each is collected, no duplicates until the set is done.`;
+    tert=`<div class="chart-card"><h3>Tertiary drops (you)</h3><div class="csub">${assume} ${fmtFull(n)} raids.</div><div class="tiles">`;
     if(cfg.tertThread) tert+=`<div class="tile"><div class="qty">${fmtFull(acc.threadGot)}</div>${iconHTML("Thread_of_elidinis.png","🧵")}<div class="nm">Thread of Elidinis</div></div>`;
     if(cfg.tertJewel) for(const j of JEWELS) tert+=`<div class="tile"><div class="qty">${fmtFull(acc.jewelCounts[j.name])}</div>${iconHTML(j.file,j.emoji)}<div class="nm">${j.name}</div></div>`;
     tert+=`</div></div>`; }
@@ -1548,6 +1595,10 @@ adjRLpet = RL (≤400) ; 400+floor((RL−400)/3) (≤550) ; capped at 450</div>
 
   <h3>Common loot</h3>
   <p>If a player does not get a unique, they get the common supply drop: three rolls on the common table, each giving <code>points / divisor</code> of an item (times a small raid-level bonus above RL 300). <b>A purple replaces this drop</b>, so the player who pulled the unique rolls no supplies that raid. The pet and the clue are separate rolls and are unaffected. In the Loot breakdown after a batch, each player's tab shows their own haul added up over every raid.</p>
+
+  <h3>Tertiary drops and one-time unlocks</h3>
+  <p><b>Thread of Elidinis</b> and the four <b>Keris partisan jewels</b> (Breach of the scarab, Eye of the corruptor, Jewel of the sun, Jewel of amascut) are separate tertiary rolls. The <b>Collection log</b> toggle sets the assumption: most people already own them, so the default uses flat base rates (thread 1/50, any jewel 4/50) and just counts duplicates. Switch to <b>Fresh</b> to model unlocking from scratch with bad-luck mitigation (thread ramps 1/10 to 3/10 by 15 KC; any jewel 4/50 to 12/50 by 75 KC) and no duplicates until the set is complete.</p>
+  <p>Three drops are <b>guaranteed one-time unlocks</b>, gated by raid level and a fully <b>deathless</b> raid (zero deaths for the whole party): <b>Masori crafting kit</b> (RL 350+ and at least 1,500 points), <b>Menaphite ornament kit</b> (RL 425+), and <b>Cursed phalanx</b> (RL 500+). You can only hold one of each, so in the simulator a player picks each up on their first qualifying raid and never again. Raise the death rate and a clean raid gets rarer, so they take longer to unlock.</p>
 
   <h3>Deaths</h3>
   <p>Every death wipes <b>max(20% of your current points, 1,000)</b>. Deaths are rolled as a Poisson process around the average you set.</p>
