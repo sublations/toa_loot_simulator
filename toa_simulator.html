@@ -1,0 +1,1326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tombs of Amascut — Loot Simulator</title>
+<meta name="description" content="A scientifically accurate Tombs of Amascut (OSRS) loot, points & purple-chance Monte-Carlo simulator." />
+<style>
+/* ============================================================================
+   OSRS WEBFONTS (RuneStar, served via jsDelivr) — graceful fallback to pixel/sans
+   ========================================================================== */
+@font-face{font-family:'RuneScape';src:url('https://cdn.jsdelivr.net/gh/RuneStar/fonts@master/RuneScape-Plain-12.ttf') format('truetype');font-weight:normal;font-display:swap}
+@font-face{font-family:'RuneScapeBold';src:url('https://cdn.jsdelivr.net/gh/RuneStar/fonts@master/RuneScape-Bold-12.ttf') format('truetype');font-weight:normal;font-display:swap}
+@font-face{font-family:'RuneScapeSmall';src:url('https://cdn.jsdelivr.net/gh/RuneStar/fonts@master/RuneScape-Plain-11.ttf') format('truetype');font-weight:normal;font-display:swap}
+
+/* ============================================================================
+   OSRS INTERFACE PALETTE
+   ========================================================================== */
+:root{
+  --rs-bg:#0e0c08;
+  --rs-stone:#3e372a;
+  --rs-stone-lo:#2c2619;
+  --rs-stone-hi:#5a503c;
+  --rs-panel:#403727;
+  --rs-panel-2:#322b1d;
+  --rs-slot:#2a2418;
+  --rs-slot-2:#1d1810;
+  --rs-bevel-hi:#6e6149;
+  --rs-bevel-lo:#19140c;
+  --rs-border:#0d0a06;
+  --rs-orange:#ff981f;
+  --rs-yellow:#ffd34e;
+  --rs-yellow-pure:#ffff00;
+  --rs-white:#f0e6d2;
+  --rs-dim:#c2b48d;
+  --rs-faint:#9a8a64;
+  --rs-green:#3ceb55;
+  --rs-red:#ff4444;
+  --rs-cyan:#33e0e0;
+  --rs-purple:#d264ff;
+  --rs-purple-lo:#9b30e0;
+  --rs-link:#ffd34e;
+  --font-ui:'RuneScape','Pixelify Sans',ui-monospace,monospace;
+  --font-bold:'RuneScapeBold','RuneScape',ui-monospace,monospace;
+  --font-sm:'RuneScapeSmall','RuneScape',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--font-ui);
+  font-size:16px;
+  line-height:1.35;
+  color:var(--rs-white);
+  background:
+    radial-gradient(900px 500px at 82% -8%, rgba(255,152,31,.07), transparent 60%),
+    radial-gradient(800px 460px at -8% 108%, rgba(210,100,255,.06), transparent 55%),
+    repeating-linear-gradient(0deg,#0e0c08 0,#0e0c08 2px,#100d09 2px,#100d09 4px),
+    #0e0c08;
+  background-attachment:fixed;
+  min-height:100vh;
+  text-shadow:1px 1px 0 rgba(0,0,0,.85);
+}
+/* RuneScape-style raised text helper */
+.rs-shadow{text-shadow:1px 1px 0 #000}
+::-webkit-scrollbar{width:14px;height:14px}
+::-webkit-scrollbar-track{background:#161209;border-left:1px solid #000}
+::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--rs-stone-hi),var(--rs-stone-lo));border:2px solid #161209;border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--rs-stone-hi)}
+
+/* Beveled OSRS panel border via layered box-shadows */
+.bevel{
+  border:1px solid var(--rs-border);
+  box-shadow:
+    inset 1px 1px 0 var(--rs-bevel-hi),
+    inset -1px -1px 0 var(--rs-bevel-lo),
+    inset 0 0 0 2px rgba(0,0,0,.18);
+}
+.bevel-in{
+  border:1px solid var(--rs-border);
+  box-shadow:
+    inset 1px 1px 0 var(--rs-bevel-lo),
+    inset -1px -1px 0 rgba(110,97,73,.5);
+}
+
+/* ============================================================================
+   HEADER
+   ========================================================================== */
+header.app{
+  position:sticky;top:0;z-index:60;
+  display:flex;align-items:center;gap:14px;
+  padding:10px 18px;
+  background:linear-gradient(180deg,#4a4131,#2c2619);
+  border-bottom:2px solid var(--rs-border);
+  box-shadow:0 3px 0 rgba(110,97,73,.25),0 8px 22px rgba(0,0,0,.5);
+}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand .glyph{
+  width:40px;height:40px;flex:0 0 auto;display:grid;place-items:center;font-size:22px;
+  background:radial-gradient(circle at 32% 26%,#6a5128,#241a0b);
+  border:2px solid var(--rs-border);border-radius:3px;
+  box-shadow:inset 1px 1px 0 var(--rs-bevel-hi),inset -1px -1px 0 #000;
+}
+.brand h1{font-family:var(--font-bold);font-size:21px;margin:0;color:var(--rs-orange);letter-spacing:.3px;white-space:nowrap}
+.brand .sub{font-size:13px;color:var(--rs-faint);margin-top:-2px;font-family:var(--font-sm)}
+header.app .spacer{flex:1}
+.seedbox{display:flex;align-items:center;gap:7px;font-size:14px;color:var(--rs-dim)}
+.seedbox input{width:120px}
+
+.rs-btn{
+  font-family:var(--font-ui);cursor:pointer;color:var(--rs-orange);
+  background:linear-gradient(180deg,#5a4f3a,#3a3325);
+  border:1px solid var(--rs-border);border-radius:3px;
+  box-shadow:inset 1px 1px 0 var(--rs-bevel-hi),inset -1px -1px 0 #000;
+  padding:6px 12px;font-size:15px;transition:filter .1s;text-shadow:1px 1px 0 #000;
+}
+.rs-btn:hover{filter:brightness(1.14);color:var(--rs-yellow)}
+.rs-btn:active{box-shadow:inset -1px -1px 0 var(--rs-bevel-hi),inset 1px 1px 0 #000;filter:brightness(.92)}
+
+/* ============================================================================
+   LAYOUT
+   ========================================================================== */
+.wrap{display:grid;grid-template-columns:minmax(340px,392px) 1fr;gap:16px;padding:16px;max-width:1680px;margin:0 auto;align-items:start}
+@media(max-width:1080px){.wrap{grid-template-columns:1fr}}
+.col-config{position:sticky;top:74px;max-height:calc(100vh - 90px);overflow:auto;padding-right:3px}
+@media(max-width:1080px){.col-config{position:static;max-height:none}}
+
+.panel{
+  background:linear-gradient(180deg,var(--rs-panel),var(--rs-panel-2));
+  border:2px solid var(--rs-border);border-radius:4px;
+  box-shadow:inset 1px 1px 0 rgba(110,97,73,.45),inset -1px -1px 0 #000,0 4px 14px rgba(0,0,0,.45);
+  margin-bottom:14px;overflow:hidden;
+}
+.panel > h2{
+  margin:0;padding:10px 14px;font-family:var(--font-bold);font-size:16px;letter-spacing:.4px;
+  color:var(--rs-orange);text-transform:uppercase;
+  background:linear-gradient(180deg,#4a4131,#322b1d);
+  border-bottom:2px solid var(--rs-border);
+  box-shadow:inset 0 1px 0 rgba(110,97,73,.4);
+  display:flex;align-items:center;gap:9px;
+}
+.panel > h2 .i{font-size:17px}
+.panel > h2 .count{margin-left:auto;font-size:13px;color:var(--rs-faint);text-transform:none;font-family:var(--font-sm)}
+.panel .body{padding:13px 14px}
+.panel.collapsible > h2{cursor:pointer}
+.panel.collapsible > h2 .chev{margin-left:auto;font-size:13px;color:var(--rs-faint);transition:transform .15s}
+.panel.collapsible > h2 .count + .chev{margin-left:9px}
+.panel.collapsed .body{display:none}
+.panel.collapsed > h2 .chev{transform:rotate(-90deg)}
+
+/* ============================================================================
+   FORM CONTROLS
+   ========================================================================== */
+label.field{display:block;margin-bottom:14px}
+label.field:last-child{margin-bottom:0}
+.field .lab{display:flex;justify-content:space-between;align-items:baseline;font-size:15px;color:var(--rs-orange);margin-bottom:6px}
+.field .lab b{color:var(--rs-yellow);font-weight:normal;font-variant-numeric:tabular-nums}
+.field .hint{font-size:13px;color:var(--rs-faint);margin-top:5px;line-height:1.45;font-family:var(--font-sm)}
+.field .hint b{color:var(--rs-dim)}
+
+input[type=number],input[type=text],select{
+  width:100%;background:#15110a;color:var(--rs-white);font-family:var(--font-ui);font-size:15px;
+  padding:7px 9px;border:1px solid var(--rs-border);border-radius:3px;outline:none;
+  box-shadow:inset 1px 1px 0 #000,inset -1px -1px 0 rgba(110,97,73,.3);
+}
+input:focus{box-shadow:inset 1px 1px 0 #000,0 0 0 2px rgba(255,152,31,.4)}
+input[type=range]{
+  -webkit-appearance:none;width:100%;height:10px;border-radius:2px;outline:none;margin:7px 0 2px;
+  background:linear-gradient(180deg,#1a160d,#0e0b07);border:1px solid var(--rs-border);
+  box-shadow:inset 1px 1px 0 #000;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:16px;height:20px;cursor:pointer;border-radius:2px;
+  background:linear-gradient(180deg,#7a6a45,#43381f);border:1px solid var(--rs-border);
+  box-shadow:inset 1px 1px 0 var(--rs-bevel-hi),inset -1px -1px 0 #000;
+}
+input[type=range]::-moz-range-thumb{
+  width:16px;height:20px;cursor:pointer;border-radius:2px;border:1px solid var(--rs-border);
+  background:linear-gradient(180deg,#7a6a45,#43381f);
+}
+input[type=checkbox]{width:auto;accent-color:#a07a2a;vertical-align:-2px;transform:scale(1.15);margin-right:6px}
+
+/* segmented */
+.seg{display:flex;gap:4px;background:#15110a;border:1px solid var(--rs-border);border-radius:3px;padding:3px;box-shadow:inset 1px 1px 0 #000}
+.seg button{
+  flex:1;font-family:var(--font-ui);font-size:14px;cursor:pointer;color:var(--rs-dim);
+  background:transparent;border:1px solid transparent;border-radius:2px;padding:6px 4px;white-space:nowrap;transition:.1s;
+}
+.seg button.active{
+  color:var(--rs-yellow);background:linear-gradient(180deg,#5a4f3a,#3a3325);
+  box-shadow:inset 1px 1px 0 var(--rs-bevel-hi),inset -1px -1px 0 #000;
+}
+.seg button:hover:not(.active){color:var(--rs-white)}
+
+/* pips */
+.pips{display:flex;gap:5px}
+.pips button{
+  flex:1;aspect-ratio:1;font-family:var(--font-bold);font-size:16px;cursor:pointer;color:var(--rs-dim);
+  background:linear-gradient(180deg,#352e20,#221d13);border:1px solid var(--rs-border);border-radius:3px;
+  box-shadow:inset 1px 1px 0 rgba(110,97,73,.35),inset -1px -1px 0 #000;transition:.1s;
+}
+.pips button.active{color:#241a0b;background:linear-gradient(180deg,var(--rs-yellow),#c8941f);box-shadow:inset 1px 1px 0 #ffe9a8,inset -1px -1px 0 #7a5510}
+.pips button:hover:not(.active){color:var(--rs-yellow)}
+.pips.small button{font-size:13px;font-family:var(--font-ui)}
+
+/* raid level readout */
+.rl-readout{display:flex;align-items:center;gap:14px;padding:11px 13px;border-radius:3px;margin-bottom:13px;
+  background:radial-gradient(circle at 100% 0,rgba(255,152,31,.13),transparent 70%),#1a160d;border:1px solid var(--rs-border);
+  box-shadow:inset 1px 1px 0 #000,inset -1px -1px 0 rgba(110,97,73,.3)}
+.rl-readout .big{font-family:var(--font-bold);font-size:38px;color:var(--rs-yellow);line-height:.95;font-variant-numeric:tabular-nums}
+.rl-readout .meta{font-size:13px;color:var(--rs-faint);line-height:1.5;font-family:var(--font-sm)}
+.rl-readout .meta b{color:var(--rs-orange)}
+.rl-readout .meta .v{color:var(--rs-white)}
+
+.presets{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:11px}
+.preset{
+  font-family:var(--font-sm);font-size:13px;cursor:pointer;color:var(--rs-dim);
+  background:linear-gradient(180deg,#352e20,#221d13);border:1px solid var(--rs-border);border-radius:3px;
+  box-shadow:inset 1px 1px 0 rgba(110,97,73,.3),inset -1px -1px 0 #000;padding:5px 9px;transition:.1s;
+}
+.preset:hover{color:var(--rs-yellow);filter:brightness(1.12)}
+
+/* invocations */
+.inv-cat{margin-bottom:11px}
+.inv-cat-h{font-family:var(--font-sm);font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--rs-faint);margin:0 0 6px;display:flex;align-items:center;gap:7px}
+.inv-cat-h::after{content:"";flex:1;height:2px;background:linear-gradient(90deg,var(--rs-bevel-lo),transparent)}
+.inv{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:3px;cursor:pointer;border:1px solid transparent;transition:.1s;margin-bottom:2px}
+.inv:hover{background:rgba(255,152,31,.06)}
+.inv.on{background:linear-gradient(90deg,rgba(255,152,31,.12),transparent);border-color:var(--rs-bevel-lo)}
+.inv .box{width:18px;height:18px;flex:0 0 auto;border-radius:2px;border:1px solid var(--rs-border);background:#15110a;display:grid;place-items:center;font-size:13px;color:transparent;box-shadow:inset 1px 1px 0 #000;transition:.1s}
+.inv.on .box{background:linear-gradient(180deg,var(--rs-yellow),#c8941f);color:#241a0b}
+.inv .nm{flex:1;font-size:14px;color:var(--rs-white);line-height:1.2}
+.inv .nm small{display:block;color:var(--rs-faint);font-size:12px;font-family:var(--font-sm)}
+.inv .pts{font-family:var(--font-bold);font-size:14px;color:var(--rs-green);min-width:34px;text-align:right;font-variant-numeric:tabular-nums}
+
+/* ============================================================================
+   RUN BAR + TABS
+   ========================================================================== */
+.runbar{display:flex;gap:10px;align-items:flex-end;
+  background:linear-gradient(180deg,var(--rs-panel),var(--rs-panel-2));border:2px solid var(--rs-border);border-radius:4px;
+  box-shadow:inset 1px 1px 0 rgba(110,97,73,.45),inset -1px -1px 0 #000,0 4px 14px rgba(0,0,0,.45);padding:13px;margin-bottom:14px}
+.runbar .n{flex:1;margin:0}
+.btn-primary{
+  font-family:var(--font-bold);font-size:17px;cursor:pointer;color:#241a0b;padding:9px 20px;border-radius:3px;
+  background:linear-gradient(180deg,#ffd34e,#d89a1e);border:1px solid var(--rs-border);
+  box-shadow:inset 1px 1px 0 #ffeaa0,inset -1px -1px 0 #8a5e10;transition:filter .1s;text-shadow:1px 1px 0 rgba(255,255,255,.25)}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-primary:active{box-shadow:inset -1px -1px 0 #ffeaa0,inset 1px 1px 0 #8a5e10}
+.btn-primary:disabled{opacity:.5;cursor:wait}
+.progress{height:10px;background:#15110a;border:1px solid var(--rs-border);border-radius:2px;overflow:hidden;margin-top:11px;display:none;box-shadow:inset 1px 1px 0 #000}
+.progress.show{display:block}
+.progress .bar{height:100%;width:0;background:linear-gradient(90deg,#c8941f,var(--rs-yellow));transition:width .06s linear}
+
+.tabs{display:flex;gap:5px;margin-bottom:14px}
+.tabs button{
+  flex:1;font-family:var(--font-bold);font-size:15px;cursor:pointer;color:var(--rs-dim);padding:10px 6px;border-radius:3px 3px 0 0;
+  background:linear-gradient(180deg,#352e20,#221d13);border:1px solid var(--rs-border);border-bottom:2px solid var(--rs-border);
+  box-shadow:inset 1px 1px 0 rgba(110,97,73,.3);transition:.1s}
+.tabs button.active{color:var(--rs-orange);background:linear-gradient(180deg,#534833,#3a3123);border-bottom:2px solid var(--rs-orange)}
+.tabs button:hover:not(.active){color:var(--rs-white)}
+
+.view{display:none}
+.view.active{display:block}
+.empty{text-align:center;padding:64px 28px;color:var(--rs-faint);background:rgba(0,0,0,.18);border:2px dashed var(--rs-bevel-lo);border-radius:4px}
+.empty .em{font-size:44px;margin-bottom:12px;opacity:.6}
+.empty h3{margin:0 0 6px;color:var(--rs-orange);font-family:var(--font-bold);font-size:18px}
+.empty p{margin:0 auto;font-size:14px;max-width:400px;line-height:1.5;font-family:var(--font-sm)}
+
+/* ============================================================================
+   STAT CARDS
+   ========================================================================== */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px;margin-bottom:14px}
+.stat{background:linear-gradient(180deg,var(--rs-panel),var(--rs-panel-2));border:1px solid var(--rs-border);border-radius:3px;
+  box-shadow:inset 1px 1px 0 rgba(110,97,73,.4),inset -1px -1px 0 #000;padding:11px 13px;position:relative;overflow:hidden}
+.stat::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--rs-orange)}
+.stat.purple::before{background:var(--rs-purple)}
+.stat.green::before{background:var(--rs-green)}
+.stat.red::before{background:var(--rs-red)}
+.stat.cyan::before{background:var(--rs-cyan)}
+.stat .k{font-family:var(--font-sm);font-size:13px;letter-spacing:.3px;color:var(--rs-faint);margin-bottom:6px;text-transform:uppercase}
+.stat .v{font-family:var(--font-bold);font-size:26px;color:var(--rs-yellow);font-variant-numeric:tabular-nums;line-height:1}
+.stat .v small{font-size:15px;color:var(--rs-dim)}
+.stat .d{font-size:13px;color:var(--rs-faint);margin-top:6px;font-family:var(--font-sm)}
+.stat .d.good{color:var(--rs-green)}
+.stat .d.bad{color:var(--rs-red)}
+
+/* ============================================================================
+   EXPECTED / WIKI-STYLE TABLE
+   ========================================================================== */
+.headline{background:radial-gradient(circle at 0 0,rgba(255,152,31,.1),transparent 65%),#1a160d;border:1px solid var(--rs-border);border-radius:3px;
+  box-shadow:inset 1px 1px 0 rgba(110,97,73,.3),inset -1px -1px 0 #000;padding:13px 15px;margin-bottom:14px;font-size:15px;line-height:1.55;color:var(--rs-dim)}
+.headline b{color:var(--rs-yellow)}
+.headline .pur{color:var(--rs-purple)}
+
+.chart-card{background:linear-gradient(180deg,var(--rs-panel),var(--rs-panel-2));border:2px solid var(--rs-border);border-radius:4px;
+  box-shadow:inset 1px 1px 0 rgba(110,97,73,.4),inset -1px -1px 0 #000,0 4px 12px rgba(0,0,0,.4);padding:13px 15px;margin-bottom:14px}
+.chart-card h3{margin:0 0 3px;font-family:var(--font-bold);font-size:16px;color:var(--rs-orange)}
+.chart-card .csub{font-size:13px;color:var(--rs-faint);margin-bottom:11px;font-family:var(--font-sm)}
+canvas{display:block;width:100%}
+
+.utable{width:100%;border-collapse:collapse;font-size:14px}
+.utable th{text-align:left;padding:7px 9px;color:var(--rs-faint);font-family:var(--font-sm);font-size:13px;text-transform:uppercase;letter-spacing:.3px;border-bottom:2px solid var(--rs-bevel-lo)}
+.utable td{padding:8px 9px;border-bottom:1px solid var(--rs-bevel-lo);color:var(--rs-dim);vertical-align:middle}
+.utable tr:last-child td{border-bottom:none}
+.utable tr.uniqrow:hover{background:rgba(255,152,31,.05)}
+.utable td.it{display:flex;align-items:center;gap:10px;color:var(--rs-white)}
+.utable td.it.pur{color:var(--rs-purple)}
+.utable td.it .mini{width:30px;height:28px;display:grid;place-items:center;flex:0 0 auto}
+.utable td.it .mini img{max-width:30px;max-height:28px}
+.utable td.num{text-align:right;font-variant-numeric:tabular-nums;color:var(--rs-yellow);font-family:var(--font-bold)}
+.utable td.num.dim{color:var(--rs-faint);font-family:var(--font-sm)}
+.utable td.num.cy{color:var(--rs-cyan)}
+.utable .barcell{min-width:110px}
+.utable .minibar{height:9px;background:#15110a;border:1px solid var(--rs-border);border-radius:2px;overflow:hidden;box-shadow:inset 1px 1px 0 #000}
+.utable .minibar .f{height:100%;background:linear-gradient(90deg,var(--rs-purple-lo),var(--rs-purple))}
+.utable tfoot td{border-top:2px solid var(--rs-bevel-lo);border-bottom:none;color:var(--rs-orange);font-family:var(--font-bold);padding-top:9px}
+
+/* ============================================================================
+   SINGLE RAID
+   ========================================================================== */
+.chest-head{display:flex;align-items:stretch;gap:11px;margin-bottom:14px;flex-wrap:wrap}
+.verdict{padding:11px 16px;border-radius:3px;font-family:var(--font-bold);font-size:16px;display:flex;align-items:center;gap:10px}
+.verdict.purple{background:linear-gradient(180deg,rgba(210,100,255,.24),rgba(210,100,255,.08));border:1px solid var(--rs-purple-lo);color:#eecaff;box-shadow:0 0 20px rgba(155,48,224,.35),inset 1px 1px 0 rgba(255,255,255,.1)}
+.verdict.plain{background:#1a160d;border:1px solid var(--rs-border);color:var(--rs-dim);box-shadow:inset 1px 1px 0 #000}
+
+.players{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:11px;margin-bottom:14px}
+.pcard{background:linear-gradient(180deg,#322b1d,#252013);border:1px solid var(--rs-border);border-radius:3px;box-shadow:inset 1px 1px 0 rgba(110,97,73,.35),inset -1px -1px 0 #000;padding:11px}
+.pcard.win{border-color:var(--rs-purple-lo);box-shadow:0 0 0 1px var(--rs-purple-lo),0 0 16px rgba(155,48,224,.25)}
+.pcard .ph{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.pcard .ph .name{font-family:var(--font-bold);font-size:15px;color:var(--rs-orange)}
+.pcard .ph .name.you{color:var(--rs-yellow)}
+.pcard .ph .tag{font-family:var(--font-sm);font-size:12px;padding:2px 7px;border-radius:2px;background:var(--rs-bevel-lo);color:var(--rs-dim)}
+.pcard .ph .tag.win{background:var(--rs-purple-lo);color:#fff}
+.pcard .ph .tag.dead{background:#5a1f14;color:#ffb4a6}
+.pcard .row{display:flex;justify-content:space-between;font-size:14px;padding:2px 0;color:var(--rs-dim)}
+.pcard .row b{color:var(--rs-white);font-family:var(--font-bold);font-weight:normal;font-variant-numeric:tabular-nums}
+.pcard .share{height:7px;background:#15110a;border:1px solid var(--rs-border);border-radius:2px;margin:7px 0 1px;overflow:hidden;box-shadow:inset 1px 1px 0 #000}
+.pcard .share .f{height:100%;background:linear-gradient(90deg,#c8941f,var(--rs-yellow))}
+
+.loot-section h4{font-family:var(--font-bold);font-size:14px;text-transform:uppercase;letter-spacing:.4px;color:var(--rs-orange);margin:16px 0 9px;display:flex;align-items:center;gap:8px}
+.loot-section h4::after{content:"";flex:1;height:2px;background:linear-gradient(90deg,var(--rs-bevel-lo),transparent)}
+
+/* inventory-style item slots */
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:8px}
+.tile{background:linear-gradient(180deg,var(--rs-slot),var(--rs-slot-2));border:1px solid var(--rs-border);border-radius:3px;
+  box-shadow:inset 1px 1px 0 rgba(110,97,73,.25),inset -1px -1px 0 #000;padding:9px 6px 6px;text-align:center;position:relative;transition:.1s}
+.tile:hover{filter:brightness(1.15)}
+.tile.uniq{border-color:var(--rs-purple-lo);background:radial-gradient(circle at 50% 22%,rgba(155,48,224,.22),var(--rs-slot-2) 72%);box-shadow:0 0 14px rgba(155,48,224,.28),inset 1px 1px 0 rgba(210,100,255,.2)}
+.tile.pet{border-color:#3c9b55}
+.tile .ic{width:42px;height:42px;margin:0 auto 6px;display:grid;place-items:center}
+.tile .ic img{max-width:42px;max-height:42px;image-rendering:auto;filter:drop-shadow(0 2px 2px rgba(0,0,0,.7))}
+.tile .ic .fallback{width:38px;height:38px;border-radius:5px;display:grid;place-items:center;font-size:18px;background:linear-gradient(180deg,#4a3c22,#281f12);border:1px solid var(--rs-bevel-lo)}
+.tile .nm{font-family:var(--font-sm);font-size:12px;line-height:1.2;color:var(--rs-dim);min-height:24px;display:flex;align-items:center;justify-content:center}
+.tile.uniq .nm{color:#eecaff}
+.tile .qty{position:absolute;top:3px;right:6px;font-family:var(--font-bold);font-size:14px;color:var(--rs-yellow-pure);text-shadow:1px 1px 0 #000;font-variant-numeric:tabular-nums}
+
+/* ============================================================================
+   MECHANICS DOC
+   ========================================================================== */
+.doc{font-size:15px;line-height:1.65;color:var(--rs-dim)}
+.doc h3{color:var(--rs-orange);font-family:var(--font-bold);font-size:17px;margin:20px 0 8px}
+.doc h3:first-child{margin-top:0}
+.doc p{margin:0 0 10px}
+.doc b{color:var(--rs-white)}
+.doc code,.kbd{font-family:'RuneScapeBold',monospace;font-size:14px;background:#15110a;border:1px solid var(--rs-border);border-radius:2px;padding:1px 6px;color:var(--rs-yellow)}
+.doc .formula{font-family:'RuneScape',ui-monospace,monospace;font-size:14px;background:#15110a;border:1px solid var(--rs-border);border-left:3px solid var(--rs-orange);border-radius:3px;
+  padding:11px 13px;margin:10px 0;color:var(--rs-white);white-space:pre-wrap;line-height:1.6;overflow-x:auto;box-shadow:inset 1px 1px 0 #000}
+.doc ul{margin:6px 0 12px;padding-left:20px}
+.doc li{margin-bottom:5px}
+.doc a,.footer a{color:var(--rs-link)}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(150%);
+  background:linear-gradient(180deg,#4a4131,#2c2619);border:2px solid var(--rs-border);color:var(--rs-yellow);
+  font-family:var(--font-bold);padding:10px 18px;border-radius:3px;font-size:15px;
+  box-shadow:inset 1px 1px 0 rgba(110,97,73,.4),0 6px 18px rgba(0,0,0,.5);transition:transform .28s cubic-bezier(.2,1.4,.4,1);z-index:100}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.footer{text-align:center;padding:22px;color:var(--rs-faint);font-size:13px;line-height:1.6;font-family:var(--font-sm)}
+</style>
+</head>
+<body>
+
+<header class="app">
+  <div class="brand">
+    <div class="glyph">𓋹</div>
+    <div>
+      <h1>Tombs of Amascut — Loot Simulator</h1>
+      <div class="sub">Monte-Carlo reward engine · faithful to the OSRS Wiki</div>
+    </div>
+  </div>
+  <div class="spacer"></div>
+  <div class="seedbox" title="Set a seed for reproducible runs. Leave blank for random.">
+    <span>Seed</span>
+    <input type="text" id="seed" placeholder="random" />
+    <button class="rs-btn" id="reseedBtn">⟳</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- ===================== CONFIG ===================== -->
+  <div class="col-config">
+
+    <div class="panel">
+      <h2><span class="i">👥</span> Raid Party</h2>
+      <div class="body">
+        <label class="field">
+          <div class="lab">Team size <b id="teamSizeLab">1</b></div>
+          <div class="pips" id="teamPips"></div>
+          <div class="hint">Boss HP &amp; point pools scale with party via the Wiki's team-size table. The unique roll uses the team's <b>combined</b> points; the purple is awarded to one player weighted by contribution.</div>
+        </label>
+        <label class="field" id="youShareField" style="display:none">
+          <div class="lab">Team composition <b id="youShareLab">Coordinated</b></div>
+          <select id="teamComp">
+            <option value="even">Coordinated — premade, all similar skill</option>
+            <option value="mixed">Mixed — pros &amp; noobs together</option>
+            <option value="pug">PUG mass — random strangers, wild variance</option>
+            <option value="carry">You carry the team</option>
+            <option value="leech">You leech off the team</option>
+          </select>
+          <div class="hint">Sets each player's <b>persistent skill</b>, which drives point contribution <i>and</i> who earns MVP in each boss room — a strong player tends to MVP several rooms. "You" = Player&nbsp;1, tracked separately. The Wiki's per-person estimate assumes an even split.</div>
+        </label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2><span class="i">⚙️</span> Raid Level <span class="count" id="rlModeCount"></span></h2>
+      <div class="body">
+        <div class="rl-readout">
+          <div class="big" id="rlBig">400</div>
+          <div class="meta">
+            <div><b>Adjusted:</b> <span class="v" id="rlAdj">340</span> · <b>Pts/1%:</b> <span class="v" id="rlDenom">3,700</span></div>
+            <div><b>Per-1% purple</b> uses diminishing-returns RL</div>
+            <div><b>Est. team points:</b> <span class="v" id="rlEstPts">—</span></div>
+          </div>
+        </div>
+        <div class="seg" id="rlMode" style="margin-bottom:12px">
+          <button data-v="manual" class="active">Quick slider</button>
+          <button data-v="invocations">Invocation builder</button>
+        </div>
+        <div id="rlManualWrap">
+          <label class="field">
+            <div class="lab">Raid level <b id="rlManualLab">400</b></div>
+            <input type="range" id="rlManual" min="0" max="600" step="5" value="400" />
+            <div class="presets">
+              <button class="preset" data-rl="0">0 · Entry</button>
+              <button class="preset" data-rl="150">150 · Normal</button>
+              <button class="preset" data-rl="300">300 · Expert</button>
+              <button class="preset" data-rl="350">350 · Grind</button>
+              <button class="preset" data-rl="400">400 · Meta</button>
+              <button class="preset" data-rl="450">450 · CA</button>
+              <button class="preset" data-rl="500">500 · Max</button>
+            </div>
+          </label>
+        </div>
+        <div id="rlInvWrap" style="display:none">
+          <div class="presets" id="invPresets"></div>
+          <div id="invList"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel collapsible">
+      <h2><span class="i">🏆</span> Performance <span class="chev">▾</span></h2>
+      <div class="body">
+        <label class="field">
+          <div class="lab">Wardens P2 — <b id="downsLab">2-down</b></div>
+          <div class="pips small" id="downsPips"></div>
+          <div class="hint">Number of times the Warden is brought down in Phase 2. Each extra "down" is another full P2 Warden HP pool of points. <b>3-down ≈ +3%</b> total points (matches the Wiki); an 8-down is the theoretical maximum.</div>
+        </label>
+        <label class="field">
+          <div class="lab">Team efficiency <b id="effLab">Average (100%)</b></div>
+          <div class="seg" id="effMode">
+            <button data-v="casual">Casual</button>
+            <button data-v="average" class="active">Average</button>
+            <button data-v="efficient">Efficient</button>
+            <button data-v="max">Max</button>
+          </div>
+          <div class="hint">Scales points ±, modelling shield regen, kill speed, trap failures &amp; precision loss noted by the Wiki. "Average" matches the Wiki's baseline estimate.</div>
+        </label>
+        <label class="field">
+          <div class="lab">Run-to-run variance (CV) <b id="cvLab">12%</b></div>
+          <input type="range" id="cv" min="0" max="35" step="1" value="12" />
+          <div class="hint">Random spread of point totals between raids. 0% = every raid identical to the estimate.</div>
+        </label>
+        <label class="field">
+          <div class="lab">Avg deaths / player / raid <b id="deathLab">0.10</b></div>
+          <input type="range" id="deathRate" min="0" max="300" step="1" value="10" />
+          <div class="hint">Poisson(λ). Each death removes <b>max(20% of current points, 1,000)</b> — exactly as on the Wiki.</div>
+        </label>
+      </div>
+    </div>
+
+    <div class="panel collapsible collapsed">
+      <h2><span class="i">💠</span> Tertiary Drops <span class="chev">▾</span></h2>
+      <div class="body">
+        <label class="field">
+          <div class="lab" style="cursor:pointer"><span><input type="checkbox" id="tertThread" checked>Thread of Elidinis</span></div>
+          <div class="hint">Base <span class="kbd">1/10</span> → <span class="kbd">3/10</span> by 15 KC (bad-luck mitigation); <span class="kbd">1/50</span> once obtained.</div>
+        </label>
+        <label class="field">
+          <div class="lab" style="cursor:pointer"><span><input type="checkbox" id="tertJewel" checked>Keris Partisan jewels</span></div>
+          <div class="hint">Any jewel <span class="kbd">4/50</span> → <span class="kbd">12/50</span> by 75 KC. No duplicates until all four are collected.</div>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== RESULTS ===================== -->
+  <div class="col-results">
+    <div class="runbar">
+      <label class="field n">
+        <div class="lab">Number of raids <b id="nRaidsLab">1,000</b></div>
+        <input type="range" id="nRaids" min="0" max="60" step="1" value="30" />
+        <div class="hint" id="nRaidsHint">Monte-Carlo over many raids → aggregate statistics. Set to 1 for a single detailed loot breakdown.</div>
+      </label>
+      <button class="rs-btn" id="runOneBtn" style="font-size:15px;padding:9px 14px">Run 1 raid</button>
+      <button class="btn-primary" id="runBtn">▶ Simulate</button>
+    </div>
+    <div class="progress" id="progress"><div class="bar" id="progressBar"></div></div>
+
+    <div class="tabs">
+      <button data-view="expected" class="active">Expected rewards</button>
+      <button data-view="single">Loot breakdown</button>
+      <button data-view="batch">Aggregate stats</button>
+      <button data-view="mechanics">Mechanics</button>
+    </div>
+
+    <div class="view active" id="view-expected"><div id="expectedResult"></div></div>
+
+    <div class="view" id="view-single">
+      <div class="empty" id="singleEmpty">
+        <div class="em">🏺</div>
+        <h3>No raid simulated yet</h3>
+        <p>Configure your party and raid level, then hit <b>Run 1 raid</b> to crack the chest and see exactly how points, deaths and the unique roll played out.</p>
+      </div>
+      <div id="singleResult"></div>
+    </div>
+
+    <div class="view" id="view-batch">
+      <div class="empty" id="batchEmpty">
+        <div class="em">📈</div>
+        <h3>No simulation run yet</h3>
+        <p>Slide <b>Number of raids</b> up (try thousands) and press <b>Simulate</b> for purple rates, item distributions, point histograms, deaths and dry-streak analysis.</p>
+      </div>
+      <div id="batchResult"></div>
+    </div>
+
+    <div class="view" id="view-mechanics"><div class="panel"><div class="body doc" id="mechanicsDoc"></div></div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="footer">
+  Independent educational tool. Mechanics &amp; figures from the
+  <a href="https://oldschool.runescape.wiki/w/Tombs_of_Amascut" target="_blank" rel="noopener">OSRS Wiki</a>
+  (Tombs of Amascut · Chest · Invocations · loot module). Font: RuneScape (RuneStar). Not affiliated with Jagex.
+</div>
+
+<script>
+"use strict";
+/* ============================================================================
+   TOMBS OF AMASCUT — LOOT SIMULATOR  (all reward math from the OSRS Wiki)
+   ----------------------------------------------------------------------------
+   PROBABILITY (exact):
+     • Purple:  min(0.55, teamPoints / (100·(10500 − 20·adjRL)))           [team]
+                per item × weight/Σweight × (RL<itemLevel ? 1/50 : 1)
+                awarded to one player ∝ individual contribution.
+     • Pet (Tumeken's guardian): teamPoints / (100·(350000 − 700·adjRLpet))
+     • Clue (elite):  personalPoints / 200000     (per person)
+     • Death: −max(20% pts, 1000) each.
+   POINTS ENGINE (Wiki Module — HP-based):
+     scaled_hp = floor(base_hp · (1 + RL/250) · TEAM_SCALE[n])
+     points    = floor(scaled_hp · mult) · count        (P2 Warden count = downs)
+     + fixed challenge-room points; + completeness factor (path/adds) calibrated
+       to the Wiki's RL450/8-man/2-down anchor of 146,294.
+   ========================================================================== */
+
+/* ---------- seedable PRNG (mulberry32) ---------- */
+function makeRng(seed){let s=seed>>>0;return function(){s|=0;s=(s+0x6D2B79F5)|0;let t=Math.imul(s^(s>>>15),1|s);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296;};}
+function hashSeed(str){let h=1779033703^str.length;for(let i=0;i<str.length;i++){h=Math.imul(h^str.charCodeAt(i),3432918353);h=(h<<13)|(h>>>19);}return(h^=h>>>16)>>>0;}
+function gauss(rng){let u=0,v=0;while(u===0)u=rng();while(v===0)v=rng();return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+function poisson(rng,lambda){if(lambda<=0)return 0;if(lambda>30)return Math.max(0,Math.round(lambda+gauss(rng)*Math.sqrt(lambda)));const L=Math.exp(-lambda);let k=0,p=1;do{k++;p*=rng();}while(p>L);return k-1;}
+
+/* ============================================================================
+   DATA
+   ========================================================================== */
+const WIKI_IMG="https://oldschool.runescape.wiki/images/";
+
+/* unique items: base weight, RL level requirement, icon, emoji */
+const PURPLE_BASE=[
+  {name:"Tumeken's shadow", weight:10, level:150, file:"Tumeken%27s_shadow_%28uncharged%29.png", emoji:"🌑"},
+  {name:"Masori mask",      weight:20, level:150, file:"Masori_mask.png",  emoji:"🪖"},
+  {name:"Masori body",      weight:20, level:150, file:"Masori_body.png",  emoji:"🦅"},
+  {name:"Masori chaps",     weight:20, level:150, file:"Masori_chaps.png", emoji:"👖"},
+  {name:"Elidinis' ward",   weight:30, level:150, file:"Elidinis%27_ward.png", emoji:"🛡️"},
+  {name:"Osmumten's fang",  weight:70, level:50,  file:"Osmumten%27s_fang.png", emoji:"🗡️"},
+  {name:"Lightbearer",      weight:70, level:50,  file:"Lightbearer.png",  emoji:"💍"},
+];
+function purpleWeights(rl){
+  let fang=70,light=70;
+  if(rl>=350&&rl<400){fang=70-Math.floor((rl-350)*0.4);light=70-Math.floor((rl-350)*0.2);}
+  else if(rl>=400&&rl<450){fang=40;light=50-Math.floor((rl-400)*0.2);}
+  else if(rl>=450&&rl<500){fang=40-Math.floor((rl-450)*0.2);light=40-Math.floor((rl-450)*0.1);}
+  else if(rl>=500){fang=30;light=35;}
+  return PURPLE_BASE.map(p=>({...p,weight:p.name==="Osmumten's fang"?fang:p.name==="Lightbearer"?light:p.weight}));
+}
+
+const PET={name:"Tumeken's guardian",file:"Tumeken%27s_guardian.png",emoji:"🐤"};
+const CLUE={name:"Clue scroll (elite)",file:"Clue_scroll_%28Elite%29.png",emoji:"📜"};
+
+const COMMON=[
+  {name:"Coins",div:1,file:"Coins_10000.png",emoji:"🪙"},
+  {name:"Death rune",div:20,file:"Death_rune.png",emoji:"💀"},
+  {name:"Soul rune",div:40,file:"Soul_rune.png",emoji:"🔮"},
+  {name:"Gold ore",div:90,file:"Gold_ore.png",emoji:"⛏️"},
+  {name:"Dragon dart tip",div:100,file:"Dragon_dart_tip.png",emoji:"🎯"},
+  {name:"Mahogany logs",div:180,file:"Mahogany_logs.png",emoji:"🪵"},
+  {name:"Sapphire",div:200,file:"Uncut_sapphire.png",emoji:"💙"},
+  {name:"Emerald",div:250,file:"Uncut_emerald.png",emoji:"💚"},
+  {name:"Gold bar",div:250,file:"Gold_bar.png",emoji:"🟡"},
+  {name:"Potato cactus",div:250,file:"Potato_cactus.png",emoji:"🌵"},
+  {name:"Raw shark",div:250,file:"Raw_shark.png",emoji:"🦈"},
+  {name:"Ruby",div:300,file:"Uncut_ruby.png",emoji:"❤️"},
+  {name:"Diamond",div:400,file:"Uncut_diamond.png",emoji:"💎"},
+  {name:"Raw manta ray",div:450,file:"Raw_manta_ray.png",emoji:"🐟"},
+  {name:"Cactus spine",div:600,file:"Cactus_spine.png",emoji:"🌵"},
+  {name:"Dragonstone",div:600,file:"Uncut_dragonstone.png",emoji:"🔶"},
+  {name:"Battlestaff",div:1100,file:"Battlestaff.png",emoji:"🪄"},
+  {name:"Coconut milk",div:1100,file:"Coconut_milk.png",emoji:"🥥"},
+  {name:"Lily of the sands",div:1100,file:"Lily_of_the_sands.png",emoji:"🌸"},
+  {name:"Toadflax seed",div:2000,file:"Toadflax_seed_5.png",emoji:"🌱"},
+  {name:"Ranarr seed",div:2500,file:"Ranarr_seed_5.png",emoji:"🌿"},
+  {name:"Torstol seed",div:3200,file:"Torstol_seed_5.png",emoji:"🍀"},
+  {name:"Snapdragon seed",div:3200,file:"Snapdragon_seed_5.png",emoji:"🐲"},
+  {name:"Dragon med helm",div:4000,file:"Dragon_med_helm.png",emoji:"🪖"},
+  {name:"Magic seed",div:6500,file:"Magic_seed_5.png",emoji:"✨"},
+  {name:"Blood essence",div:7500,file:"Blood_essence.png",emoji:"🩸"},
+];
+const JEWELS=[
+  {name:"Breach of the scarab",file:"Breach_of_the_scarab.png",emoji:"🪲"},
+  {name:"Eye of the corruptor",file:"Eye_of_the_corruptor.png",emoji:"👁️"},
+  {name:"Jewel of the sun",file:"Jewel_of_the_sun.png",emoji:"☀️"},
+  {name:"Cursed phalanx",file:"Cursed_phalanx.png",emoji:"🦴"},
+];
+
+/* invocations */
+const INVOCATIONS=[
+  {c:"Attempts",n:"Try Again",p:5,d:"Ten attempts"},
+  {c:"Attempts",n:"Persistence",p:10,d:"Five attempts"},
+  {c:"Attempts",n:"Softcore Run",p:15,d:"Three attempts"},
+  {c:"Attempts",n:"Hardcore Run",p:25,d:"One attempt only"},
+  {c:"Time Limit",n:"Walk for It",p:10,d:"40-min limit"},
+  {c:"Time Limit",n:"Jog for It",p:15,d:"35-min limit"},
+  {c:"Time Limit",n:"Run for It",p:20,d:"30-min limit"},
+  {c:"Time Limit",n:"Sprint for It",p:25,d:"25-min limit"},
+  {c:"Helpful Spirit",n:"Need Some Help?",p:15,d:"Spirit offers 66% of items"},
+  {c:"Helpful Spirit",n:"Need Less Help?",p:25,d:"Spirit offers 33% of items"},
+  {c:"Helpful Spirit",n:"No Help Needed",p:40,d:"Spirit offers 10% of items"},
+  {c:"Path Levels",n:"Walk the Path",p:50,d:"Four path level-ups"},
+  {c:"Path Levels",n:"Pathseeker",p:15,d:"All paths +1"},
+  {c:"Path Levels",n:"Pathfinder",p:40,d:"All paths +2"},
+  {c:"Path Levels",n:"Pathmaster",p:50,d:"All paths +3"},
+  {c:"Prayer & Supplies",n:"Quiet Prayers",p:20,d:"Protect prayers 10% weaker"},
+  {c:"Prayer & Supplies",n:"Deadly Prayers",p:20,d:"Prayer drained by 20% of dmg taken"},
+  {c:"Prayer & Supplies",n:"On a Diet",p:15,d:"Cannot eat food"},
+  {c:"Prayer & Supplies",n:"Dehydration",p:30,d:"Cannot drink health potions"},
+  {c:"Prayer & Supplies",n:"Overly Draining",p:15,d:"Specials cost 100% energy"},
+  {c:"Kephri",n:"Lively Larvae",p:5,d:"Dark eggs 2 → 4"},
+  {c:"Kephri",n:"More Overlords",p:15,d:"Extra shield-phase scarab"},
+  {c:"Kephri",n:"Blowing Mud",p:10,d:"Dung Strike hits two"},
+  {c:"Kephri",n:"Medic!",p:15,d:"Swarms outside heal phase"},
+  {c:"Kephri",n:"Aerial Assault",p:10,d:"Auto dmg up; 3×3 range"},
+  {c:"Zebak",n:"Not Just a Head",p:15,d:"Blood Blitz / Blood Clouds"},
+  {c:"Zebak",n:"Arterial Spray",p:10,d:"Blood magic range & heal up"},
+  {c:"Zebak",n:"Blood Thinners",p:5,d:"Three Blood Clouds"},
+  {c:"Zebak",n:"Upset Stomach",p:15,d:"Acid pools 5×5"},
+  {c:"Akkha",n:"Double Trouble",p:20,d:"Two specials at once"},
+  {c:"Akkha",n:"Keep Back",p:10,d:"Melee added"},
+  {c:"Akkha",n:"Stay Vigilant",p:15,d:"Random attack/prayer swaps"},
+  {c:"Akkha",n:"Feeling Special?",p:20,d:"More Detonate directions"},
+  {c:"Ba-Ba",n:"Mind the Gap!",p:10,d:"Fall & die on knockback"},
+  {c:"Ba-Ba",n:"Gotta Have Faith",p:10,d:"Energy blasts scale w/ prayer"},
+  {c:"Ba-Ba",n:"Jungle Japes",p:5,d:"Banana peels stun"},
+  {c:"Ba-Ba",n:"Shaking Things Up",p:10,d:"Shockwave 3×3 → 5×5"},
+  {c:"Ba-Ba",n:"Boulderdash",p:10,d:"Boulders twice as fast"},
+  {c:"Wardens",n:"Ancient Haste",p:10,d:"P1: charge faster"},
+  {c:"Wardens",n:"Acceleration",p:10,d:"P2: attack faster"},
+  {c:"Wardens",n:"Penetration",p:10,d:"P2: disables prayers"},
+  {c:"Wardens",n:"Overclocked",p:10,d:"P3: slam 1 tick faster"},
+  {c:"Wardens",n:"Overclocked 2",p:10,d:"P3: slam 2 ticks faster"},
+  {c:"Wardens",n:"Insanity",p:50,d:"P3: slam 3 ticks faster"},
+];
+/* Realistic, commonly-run meta setups — each verified to its exact raid level
+   (efficient point-per-difficulty picks first; one per exclusive group). */
+const INV_PRESETS={
+  normal:{label:"Normal 155",list:["Persistence","Walk for It","Need Some Help?","Pathseeker","Aerial Assault","Not Just a Head","Stay Vigilant","Boulderdash","Acceleration","Lively Larvae","Blood Thinners","Jungle Japes","Ancient Haste","Keep Back","Blowing Mud"]},
+  efficient:{label:"Efficient 300",list:["Hardcore Run","Walk for It","No Help Needed","Pathfinder","On a Diet","Overly Draining","More Overlords","Aerial Assault","Medic!","Not Just a Head","Arterial Spray","Blood Thinners","Upset Stomach","Stay Vigilant","Jungle Japes","Boulderdash","Shaking Things Up","Ancient Haste","Acceleration","Keep Back"]},
+  grind:{label:"Grind 350",list:["Hardcore Run","Walk for It","No Help Needed","Pathfinder","On a Diet","Overly Draining","Lively Larvae","More Overlords","Aerial Assault","Medic!","Blowing Mud","Not Just a Head","Arterial Spray","Blood Thinners","Upset Stomach","Stay Vigilant","Double Trouble","Feeling Special?","Boulderdash","Shaking Things Up","Gotta Have Faith","Ancient Haste","Acceleration"]},
+  meta:{label:"Meta 400",list:["Hardcore Run","Run for It","No Help Needed","Pathfinder","Quiet Prayers","On a Diet","Overly Draining","Dehydration","Lively Larvae","More Overlords","Aerial Assault","Medic!","Not Just a Head","Arterial Spray","Blood Thinners","Upset Stomach","Double Trouble","Stay Vigilant","Feeling Special?","Boulderdash","Shaking Things Up","Gotta Have Faith","Ancient Haste","Acceleration"]},
+  pro:{label:"Pro 450",list:["Hardcore Run","Run for It","No Help Needed","Pathfinder","Quiet Prayers","Deadly Prayers","On a Diet","Overly Draining","Dehydration","Lively Larvae","More Overlords","Aerial Assault","Medic!","Blowing Mud","Not Just a Head","Arterial Spray","Blood Thinners","Upset Stomach","Double Trouble","Stay Vigilant","Feeling Special?","Keep Back","Boulderdash","Shaking Things Up","Gotta Have Faith","Mind the Gap!","Ancient Haste","Acceleration"]},
+  max:{label:"Max 545",list:["Hardcore Run","Sprint for It","No Help Needed","Pathmaster","Walk the Path","Quiet Prayers","Deadly Prayers","On a Diet","Dehydration","Overly Draining","Lively Larvae","More Overlords","Blowing Mud","Medic!","Aerial Assault","Not Just a Head","Arterial Spray","Blood Thinners","Upset Stomach","Double Trouble","Keep Back","Stay Vigilant","Feeling Special?","Shaking Things Up","Boulderdash","Ancient Haste","Acceleration","Insanity"]},
+};
+/* Mutually-exclusive invocation groups — picking one clears the others in-game. */
+const EXCL_GROUPS={
+  "Try Again":"attempts","Persistence":"attempts","Softcore Run":"attempts","Hardcore Run":"attempts",
+  "Walk for It":"time","Jog for It":"time","Run for It":"time","Sprint for It":"time",
+  "Need Some Help?":"help","Need Less Help?":"help","No Help Needed":"help",
+  "Pathseeker":"pathtier","Pathfinder":"pathtier","Pathmaster":"pathtier",
+  "Overclocked":"overclock","Overclocked 2":"overclock",
+};
+/* Team-composition archetypes → persistent per-player skill model. */
+const COMP={
+  even:{label:"Coordinated",hint:"premade team, all similar skill"},
+  mixed:{label:"Mixed",hint:"a blend of pros and noobs"},
+  pug:{label:"PUG mass",hint:"random strangers, wildly varied"},
+  carry:{label:"You carry",hint:"you out-perform the team"},
+  leech:{label:"You leech",hint:"the team out-performs you"},
+};
+
+/* ============================================================================
+   CORE MATH
+   ========================================================================== */
+const MAX_PURPLE=0.55;
+function adjPurple(rl){
+  if(rl<=310) return rl;
+  if(rl<=430) return 310+Math.floor((rl-310)/3);
+  return 350+Math.floor((rl-430)/6);
+}
+function adjPet(rl){
+  if(rl<=400) return rl;
+  if(rl<=550) return 400+Math.floor((rl-400)/3);
+  return 450;
+}
+const pointsPer1pct = rl => Math.max(10500-20*adjPurple(rl),1);
+const purpleDenom   = rl => 100*pointsPer1pct(rl);
+const petDenom      = rl => Math.max(100*(350000-700*adjPet(rl)),1);
+const CLUE_DENOM    = 200000;
+
+/* ---- Wiki HP-based points engine ---- */
+const TEAM_SCALE=[null,1.0,1.9,2.8,3.4,4.0,4.6,5.2,5.8];
+const BOSSES=[
+  {n:"Akkha",hp:480,mult:1.0,count:1},
+  {n:"Akkha's shadows",hp:70,mult:1.0,count:4},
+  {n:"Ba-Ba",hp:380,mult:2.0,count:1},
+  {n:"Zebak",hp:580,mult:1.5,count:1},
+  {n:"Kephri",hp:130,mult:1.0,count:1},
+  {n:"P1 Obelisk",hp:260,mult:1.5,count:1},
+  {n:"P2 Wardens",hp:140,mult:2.0,count:2,p2:true},
+  {n:"P3 Warden",hp:880,mult:2.5,count:1},
+];
+const FLAT_PER=1150;          // Scabaras 300 + Apmeken 450 + Crondis 400 — split evenly
+const MVP_PER=2700;           // MVP bonus pool / member — awarded to the TOP contributor of each boss room
+const CHALLENGE_PER=FLAT_PER+MVP_PER; // total per member (3850); preserves the Wiki anchor
+const MVP_ROOMS=["Akkha","Ba-Ba","Kephri","Zebak"];
+const K_BOSS=1.2544;          // completeness factor (path mult + adds), calibrated to Wiki anchor
+const EFF={casual:{m:0.92,l:"Casual (92%)"},average:{m:1.00,l:"Average (100%)"},efficient:{m:1.05,l:"Efficient (105%)"},max:{m:1.09,l:"Max (109%)"}};
+
+function expectedTeamPoints(rl,n,downs,eff){
+  const f=(1+rl/250)*TEAM_SCALE[n];
+  let boss=0;
+  for(const b of BOSSES){
+    const count=b.p2?downs:b.count;
+    boss+=Math.floor(Math.floor(b.hp*f)*b.mult)*count;
+  }
+  return Math.round((boss*K_BOSS + CHALLENGE_PER*n)*eff);
+}
+
+/* team purple chance from team points */
+const teamPurpleChance = (pts,rl)=>Math.min(MAX_PURPLE, pts/purpleDenom(rl));
+/* per-item team rate incl. level suppression */
+function itemTeamRates(pts,rl){
+  const base=teamPurpleChance(pts,rl);
+  const w=purpleWeights(rl); const ws=w.reduce((a,b)=>a+b.weight,0);
+  return w.map(it=>({...it, rate: base*(it.weight/ws)*(rl<it.level?1/50:1)}));
+}
+const teamPetChance  = (pts,rl)=>Math.min(1, pts/petDenom(rl));
+const personalClue   = pts=>Math.min(1, pts/CLUE_DENOM);
+
+function weightedPick(rng,items,key){
+  let total=0; for(const it of items) total+=it[key];
+  let r=rng()*total;
+  for(const it of items){ r-=it[key]; if(r<=0) return it; }
+  return items[items.length-1];
+}
+/* Persistent per-player skill for this raid (player 0 = You). Skill drives BOTH
+   point contribution and MVP odds, so a strong player tends to MVP several
+   rooms — MVPs correlate across rooms instead of being independent coin-flips. */
+function genSkills(n,comp,rng){
+  const sk=new Array(n);
+  for(let i=0;i<n;i++){
+    let v;
+    switch(comp){
+      case "even":  v=1+gauss(rng)*0.10; break;
+      case "mixed": v=(i%2===0)?(1.30+gauss(rng)*0.15):(0.62+gauss(rng)*0.18); break;
+      case "pug":   v=1+gauss(rng)*0.45; break;
+      case "carry": v=(i===0)?(1.9+gauss(rng)*0.15):(0.70+gauss(rng)*0.22); break;
+      case "leech": v=(i===0)?(0.45+gauss(rng)*0.10):(1.10+gauss(rng)*0.15); break;
+      default:      v=1;
+    }
+    sk[i]=Math.max(0.12,v);
+  }
+  return sk;
+}
+
+/* ============================================================================
+   SIMULATE ONE RAID
+   ========================================================================== */
+function simulateRaid(cfg,rng){
+  const {teamSize:n,rl,downs,eff,cv,deathRate,teamComp}=cfg;
+  const f=(1+rl/250)*TEAM_SCALE[n];
+  let boss=0; for(const b of BOSSES){ const c=b.p2?downs:b.count; boss+=Math.floor(Math.floor(b.hp*f)*b.mult)*c; }
+  const effM=EFF[eff].m, variance=Math.max(0,1+gauss(rng)*(cv/100));
+  const nonMvpTeam=Math.max(0,(boss*K_BOSS+FLAT_PER*n)*effM*variance);   // boss + flat rooms, split by contribution
+  const mvpTeam=Math.max(0, MVP_PER*n*effM*variance);                    // MVP pool, awarded per boss room
+
+  // persistent skill → contribution share (skill × mild per-raid noise)
+  const skills=genSkills(n,teamComp,rng);
+  const shRaw=skills.map(s=>Math.max(0.04, s*(1+gauss(rng)*0.10)));
+  const shSum=shRaw.reduce((a,b)=>a+b,0);
+  const shares=shRaw.map(x=>x/shSum);
+
+  // base points distributed by contribution
+  const pre=shares.map((s,i)=>({pts:nonMvpTeam*s, mvps:0}));
+  // MVP — each boss room's award goes to that room's top performer. Weight uses
+  // the PERSISTENT skill, so a strong player MVPs several rooms (correlated).
+  const roomAward=mvpTeam/MVP_ROOMS.length;
+  for(let r=0;r<MVP_ROOMS.length;r++){
+    let best=0,bw=-1;
+    for(let i=0;i<n;i++){ const w=skills[i]*Math.exp(gauss(rng)*0.5); if(w>bw){bw=w;best=i;} }
+    pre[best].pts+=roomAward; pre[best].mvps++;
+  }
+
+  const players=[]; let teamPoints=0;
+  for(let i=0;i<n;i++){
+    let pts=pre[i].pts; const base=pts;
+    const deaths=poisson(rng,deathRate);
+    for(let d=0;d<deaths;d++){ pts-=Math.max(pts*0.2,1000); if(pts<0){pts=0;break;} }
+    pts=Math.max(0,pts);
+    players.push({i,name:i===0?"You":("Player "+(i+1)),basePts:base,points:pts,deaths,mvps:pre[i].mvps,won:false,item:null,pet:false,clues:0,common:[]});
+    teamPoints+=pts;
+  }
+  const expTeam=expectedTeamPoints(rl,n,downs,effM);
+
+  // PURPLE — team roll with per-item suppression, winner ∝ contribution
+  const rates=itemTeamRates(teamPoints,rl);
+  let purple=null,r=rng(),cum=0;
+  for(const it of rates){ if(r<cum+it.rate){
+    const winner=weightedPick(rng,players.map(p=>({...p,w:Math.max(1e-9,p.points)})),"w");
+    players[winner.i].won=true; players[winner.i].item=it;
+    purple={winnerIdx:winner.i,item:it}; break;
+  } cum+=it.rate; }
+
+  // PET — separate team roll, winner ∝ contribution
+  let pet=null;
+  if(rng()<teamPetChance(teamPoints,rl)){
+    const w=weightedPick(rng,players.map(p=>({...p,w:Math.max(1e-9,p.points)})),"w");
+    players[w.i].pet=true; pet={winnerIdx:w.i};
+  }
+
+  // CLUE — independent per player
+  for(const p of players){ if(rng()<personalClue(p.points)) p.clues++; }
+
+  // COMMON — 3 rolls per player
+  const mult=rl>=300?(1.15+0.01*(rl-300)/5):1;
+  for(const p of players){
+    if(p.points<=0) continue;
+    for(let k=0;k<3;k++){
+      const it=COMMON[Math.floor(rng()*COMMON.length)];
+      p.common.push({name:it.name,qty:Math.max(1,Math.round((p.points/it.div)*mult)),file:it.file,emoji:it.emoji});
+    }
+  }
+  return {players,teamPoints,expTeam,chance:teamPurpleChance(teamPoints,rl),petChance:teamPetChance(teamPoints,rl),purple,pet};
+}
+
+/* ============================================================================
+   BATCH
+   ========================================================================== */
+function newBatchAcc(cfg){
+  return {
+    n:0,teamPurples:0,youPurples:0,teamPets:0,youPets:0,youClues:0,teamClues:0,youMVPs:0,
+    itemCounts:Object.fromEntries(PURPLE_BASE.map(p=>[p.name,0])),
+    youItemCounts:Object.fromEntries(PURPLE_BASE.map(p=>[p.name,0])),
+    perPlayerPurples:new Array(cfg.teamSize).fill(0),
+    deathsTotal:0,deathRaids:0,
+    youPtsSum:0,youPtsSumSq:0,youPtsMin:Infinity,youPtsMax:0,teamPtsSum:0,chanceSum:0,
+    youPtsHist:new Array(48).fill(0),histMax:0,histHi:1,
+    youDry:0,youMaxDry:0,
+    threadKc:0,threadGot:0,threadObtained:false,
+    jewelKc:0,jewelCounts:Object.fromEntries(JEWELS.map(j=>[j.name,0])),jewelSet:new Set(),
+    commonTotals:{},
+  };
+}
+function accumulate(acc,cfg,env,res){
+  acc.n++; acc.chanceSum+=res.chance; acc.teamPtsSum+=res.teamPoints;
+  if(res.purple){ acc.teamPurples++; acc.itemCounts[res.purple.item.name]++; acc.perPlayerPurples[res.purple.winnerIdx]++; }
+  if(res.pet) acc.teamPets++;
+  const you=res.players[0];
+  acc.youPtsSum+=you.points; acc.youPtsSumSq+=you.points*you.points;
+  if(you.points<acc.youPtsMin)acc.youPtsMin=you.points; if(you.points>acc.youPtsMax)acc.youPtsMax=you.points;
+  const bin=Math.min(47,Math.max(0,Math.floor(you.points/env.binW)));
+  acc.youPtsHist[bin]++; if(acc.youPtsHist[bin]>acc.histMax)acc.histMax=acc.youPtsHist[bin];
+  if(you.won){ acc.youPurples++; acc.youItemCounts[you.item.name]++; acc.youDry=0; } else { acc.youDry++; if(acc.youDry>acc.youMaxDry)acc.youMaxDry=acc.youDry; }
+  if(you.pet) acc.youPets++;
+  acc.youMVPs+=you.mvps;
+  acc.youClues+=you.clues;
+  for(const p of res.players) acc.teamClues+=p.clues;
+  let rd=0; for(const p of res.players) rd+=p.deaths;
+  acc.deathsTotal+=rd; if(rd>0)acc.deathRaids++;
+  for(const c of you.common) acc.commonTotals[c.name]=(acc.commonTotals[c.name]||0)+c.qty;
+  // tertiary for "you" w/ bad-luck mitigation
+  if(cfg.tertThread){
+    acc.threadKc++;
+    const rate=acc.threadObtained?1/50:(1+2*Math.min(acc.threadKc,15)/15)/10;
+    if(env.rng()<rate){ acc.threadGot++; acc.threadObtained=true; }
+  }
+  if(cfg.tertJewel){
+    acc.jewelKc++;
+    if(acc.jewelSet.size<JEWELS.length){
+      const rate=(4+8*Math.min(acc.jewelKc,75)/75)/50;
+      if(env.rng()<rate){ const rem=JEWELS.filter(j=>!acc.jewelSet.has(j.name)); const j=rem[Math.floor(env.rng()*rem.length)]; acc.jewelSet.add(j.name); acc.jewelCounts[j.name]++; }
+    } else if(env.rng()<4/50){ const j=JEWELS[Math.floor(env.rng()*JEWELS.length)]; acc.jewelCounts[j.name]++; }
+  }
+}
+
+/* ============================================================================
+   STATE
+   ========================================================================== */
+const state={teamSize:1,teamComp:"even",rlMode:"manual",rlManual:400,invActive:new Set(),downs:2,eff:"average",cv:12,deathRate:0.10,tertThread:true,tertJewel:true,nRaidsExp:30};
+const nRaidsFromSlider=v=>v===0?1:Math.max(1,Math.round(Math.pow(10,v/60*6)));
+function currentRL(){ if(state.rlMode==="manual")return state.rlManual; let s=0; for(const nm of state.invActive){const inv=INVOCATIONS.find(x=>x.n===nm); if(inv)s+=inv.p;} return Math.max(0,s); }
+function readCfg(){ return {teamSize:state.teamSize,rl:currentRL(),downs:state.downs,eff:state.eff,cv:state.cv,deathRate:state.deathRate,teamComp:state.teamComp,tertThread:state.tertThread,tertJewel:state.tertJewel}; }
+function getRng(){ const raw=document.getElementById("seed").value.trim(); let seed; if(raw==="")seed=(Math.random()*4294967296)>>>0; else if(/^\d+$/.test(raw))seed=parseInt(raw,10)>>>0; else seed=hashSeed(raw); return makeRng(seed); }
+
+/* ============================================================================
+   HELPERS
+   ========================================================================== */
+function iconHTML(file,emoji,cls){cls=cls||"";return `<span class="ic ${cls}"><img src="${WIKI_IMG}${file}" alt="" loading="lazy" onerror="this.outerHTML='<span class=&quot;fallback&quot;>${emoji}</span>'"/></span>`;}
+function miniIconHTML(file,emoji){return `<span class="mini"><img src="${WIKI_IMG}${file}" alt="" loading="lazy" onerror="this.outerHTML='${emoji}'"/></span>`;}
+const fmt=n=>n>=1e9?(n/1e9).toFixed(2)+"B":n>=1e6?(n/1e6).toFixed(n>=1e7?1:2)+"M":n>=1e4?Math.round(n/1e3)+"K":n>=1000?(Math.round(n/100)/10)+"K":Math.round(n).toLocaleString();
+const fmtFull=n=>Math.round(n).toLocaleString();
+const pct=(x,d=2)=>(x*100).toFixed(d)+"%";
+const oneIn=p=>p<=0?"—":"1 / "+(1/p).toFixed(1);
+
+/* ============================================================================
+   BUILD CONFIG UI
+   ========================================================================== */
+function buildTeamPips(){
+  const wrap=document.getElementById("teamPips"); wrap.innerHTML="";
+  for(let i=1;i<=8;i++){ const b=document.createElement("button"); b.textContent=i; if(i===state.teamSize)b.className="active";
+    b.onclick=()=>{ state.teamSize=i; buildTeamPips(); document.getElementById("teamSizeLab").textContent=i; document.getElementById("youShareField").style.display=i>1?"block":"none"; refreshDerived(); renderExpected(); };
+    wrap.appendChild(b); }
+}
+function buildDownsPips(){
+  const wrap=document.getElementById("downsPips"); wrap.innerHTML="";
+  for(let i=2;i<=8;i++){ const b=document.createElement("button"); b.textContent=i; if(i===state.downs)b.className="active";
+    b.onclick=()=>{ state.downs=i; buildDownsPips(); document.getElementById("downsLab").textContent=i+"-down"; refreshDerived(); renderExpected(); };
+    wrap.appendChild(b); }
+}
+function buildInvocations(){
+  const list=document.getElementById("invList"); list.innerHTML="";
+  for(const cat of [...new Set(INVOCATIONS.map(i=>i.c))]){
+    const wrap=document.createElement("div"); wrap.className="inv-cat";
+    const h=document.createElement("div"); h.className="inv-cat-h"; h.textContent=cat; wrap.appendChild(h);
+    for(const inv of INVOCATIONS.filter(i=>i.c===cat)){
+      const row=document.createElement("div"); row.className="inv"+(state.invActive.has(inv.n)?" on":"");
+      row.innerHTML=`<span class="box">✓</span><span class="nm">${inv.n}<small>${inv.d}</small></span><span class="pts">+${inv.p}</span>`;
+      row.onclick=()=>{ toggleInvocation(inv.n); };
+      wrap.appendChild(row);
+    }
+    list.appendChild(wrap);
+  }
+}
+function toggleInvocation(name){
+  if(state.invActive.has(name)){ state.invActive.delete(name); }
+  else{
+    const g=EXCL_GROUPS[name];
+    if(g) for(const k in EXCL_GROUPS) if(EXCL_GROUPS[k]===g && k!==name) state.invActive.delete(k);
+    state.invActive.add(name);
+  }
+  buildInvocations(); refreshDerived(); renderExpected();  // re-render keeps exclusive toggles in sync
+}
+function buildInvPresets(){
+  const wrap=document.getElementById("invPresets"); wrap.innerHTML="";
+  const mk=(key,label)=>{ const b=document.createElement("button"); b.className="preset"; b.textContent=label; b.onclick=()=>applyInvPreset(key); wrap.appendChild(b); };
+  mk("clear","✕ Clear");
+  for(const k in INV_PRESETS) mk(k, INV_PRESETS[k].label);
+}
+function applyInvPreset(k){ state.invActive=new Set(k==="clear"?[]:(INV_PRESETS[k]?INV_PRESETS[k].list:[])); buildInvocations(); refreshDerived(); renderExpected(); }
+
+function wireControls(){
+  document.getElementById("teamComp").onchange=e=>{state.teamComp=e.target.value;document.getElementById("youShareLab").textContent=COMP[e.target.value].label;};
+  document.querySelectorAll("#rlMode button").forEach(b=>b.onclick=()=>{document.querySelectorAll("#rlMode button").forEach(x=>x.classList.remove("active"));b.classList.add("active");state.rlMode=b.dataset.v;document.getElementById("rlManualWrap").style.display=b.dataset.v==="manual"?"block":"none";document.getElementById("rlInvWrap").style.display=b.dataset.v==="invocations"?"block":"none";refreshDerived();renderExpected();});
+  document.querySelectorAll("#effMode button").forEach(b=>b.onclick=()=>{document.querySelectorAll("#effMode button").forEach(x=>x.classList.remove("active"));b.classList.add("active");state.eff=b.dataset.v;document.getElementById("effLab").textContent=EFF[b.dataset.v].l;refreshDerived();renderExpected();});
+
+  const rlM=document.getElementById("rlManual");
+  rlM.oninput=()=>{state.rlManual=+rlM.value;document.getElementById("rlManualLab").textContent=rlM.value;refreshDerived();renderExpected();};
+  document.querySelectorAll(".preset[data-rl]").forEach(b=>b.onclick=()=>{state.rlManual=+b.dataset.rl;rlM.value=b.dataset.rl;document.getElementById("rlManualLab").textContent=b.dataset.rl;refreshDerived();renderExpected();});
+
+  const cv=document.getElementById("cv"); cv.oninput=()=>{state.cv=+cv.value;document.getElementById("cvLab").textContent=cv.value+"%";};
+  const dr=document.getElementById("deathRate"); dr.oninput=()=>{state.deathRate=(+dr.value)/100;document.getElementById("deathLab").textContent=state.deathRate.toFixed(2);};
+  const nr=document.getElementById("nRaids"); nr.oninput=()=>{state.nRaidsExp=+nr.value;const n=nRaidsFromSlider(+nr.value);document.getElementById("nRaidsLab").textContent=fmtFull(n);document.getElementById("nRaidsHint").textContent=n===1?"A single raid shows a full loot breakdown.":`Monte-Carlo over ${fmtFull(n)} raids → aggregate statistics.`;};
+  document.getElementById("tertThread").onchange=e=>state.tertThread=e.target.checked;
+  document.getElementById("tertJewel").onchange=e=>state.tertJewel=e.target.checked;
+  document.getElementById("reseedBtn").onclick=()=>{document.getElementById("seed").value=String((Math.random()*4294967296)>>>0);toast("New random seed set");};
+}
+function refreshDerived(){
+  const rl=currentRL();
+  document.getElementById("rlBig").textContent=rl;
+  document.getElementById("rlAdj").textContent=adjPurple(rl);
+  document.getElementById("rlDenom").textContent=fmtFull(pointsPer1pct(rl));
+  document.getElementById("rlModeCount").textContent=state.rlMode==="invocations"?`${state.invActive.size} active`:"";
+  const exp=expectedTeamPoints(rl,state.teamSize,state.downs,EFF[state.eff].m);
+  document.getElementById("rlEstPts").textContent=state.teamSize>1?`${fmtFull(exp)} (${fmtFull(Math.round(exp/state.teamSize))}/ea)`:fmtFull(exp);
+}
+
+/* ============================================================================
+   EXPECTED REWARDS VIEW (analytical — mirrors the Wiki calculator)
+   ========================================================================== */
+function renderExpected(){
+  const cfg=readCfg(); const {rl,teamSize:n,downs}=cfg;
+  const expTeam=expectedTeamPoints(rl,n,downs,EFF[cfg.eff].m);
+  const perPerson=expTeam/n;
+  const teamPurp=teamPurpleChance(expTeam,rl);
+  const teamPet=teamPetChance(expTeam,rl);
+  const rates=itemTeamRates(expTeam,rl);
+  const el=document.getElementById("expectedResult");
+
+  let head=`<div class="headline">
+    With no deaths, an even split gives ≈ <b>${fmtFull(expTeam)}</b> contribution points for the team
+    (<b>${fmtFull(Math.round(perPerson))}</b> each). At raid level <b>${rl}</b> this is a
+    <span class="pur">${pct(teamPurp)}</span> chance of a purple across the team
+    (<b>${pct(teamPurp/n,3)}</b> each), and a <b>${pct(teamPet,3)}</b> chance of the pet across the team.
+    ${rl<150?'<br><span style="color:var(--rs-red)">⚠ Below RL 150 the shadow, Masori &amp; ward are suppressed ×1/50.</span>':''}
+    ${rl<50?' <span style="color:var(--rs-red)">Below RL 50 the fang &amp; lightbearer are also suppressed.</span>':''}
+  </div>`;
+
+  // stat cards
+  let cards=`<div class="stat-grid">
+    <div class="stat"><div class="k">Team points (est.)</div><div class="v">${fmt(expTeam)}</div><div class="d">${fmtFull(Math.round(perPerson))} / person · ${downs}-down</div></div>
+    <div class="stat purple"><div class="k">Team purple chance</div><div class="v">${pct(teamPurp)}</div><div class="d">${oneIn(teamPurp)} raids</div></div>
+    <div class="stat cyan"><div class="k">Team pet chance</div><div class="v" style="font-size:22px">${pct(teamPet,3)}</div><div class="d">${oneIn(teamPet)} raids</div></div>
+    <div class="stat green"><div class="k">Elite clue / person</div><div class="v" style="font-size:22px">${pct(personalClue(perPerson),2)}</div><div class="d">${oneIn(personalClue(perPerson))}</div></div>
+  </div>`;
+
+  // unique table (per person, like wiki)
+  const ws=rates.reduce((a,b)=>a+b.weight,0);
+  let rows="";
+  for(const it of rates){
+    const supp=rl<it.level;
+    rows+=`<tr class="uniqrow">
+      <td class="it pur">${miniIconHTML(it.file,it.emoji)} ${it.name}${supp?' <span style="color:var(--rs-red);font-size:12px">×1/50</span>':''}</td>
+      <td class="num dim">${it.weight}</td>
+      <td class="num">${pct(it.rate/n,4)}</td>
+      <td class="num cy">${oneIn(it.rate/n)}</td>
+      <td class="num dim">${pct(it.rate,3)}</td>
+    </tr>`;
+  }
+  const totUnique=rates.reduce((a,b)=>a+b.rate,0);
+  let utable=`<div class="chart-card"><h3>Average rewards per person</h3>
+    <div class="csub">Analytical odds at RL ${rl}, team ${n}, ${downs}-down, ${EFF[cfg.eff].l} — mirrors the Wiki's loot calculator (even split assumed). Weights total ${ws}.</div>
+    <table class="utable"><thead><tr><th>Unique</th><th class="num">Weight</th><th class="num">Per person</th><th class="num">≈ 1 in</th><th class="num">Team</th></tr></thead>
+    <tbody>${rows}
+      <tr class="uniqrow"><td class="it">${miniIconHTML(PET.file,PET.emoji)} ${PET.name} <span style="color:var(--rs-faint);font-size:12px">(pet)</span></td><td class="num dim">—</td><td class="num">${pct(teamPet/n,4)}</td><td class="num cy">${oneIn(teamPet/n)}</td><td class="num dim">${pct(teamPet,3)}</td></tr>
+      <tr class="uniqrow"><td class="it">${miniIconHTML(CLUE.file,CLUE.emoji)} ${CLUE.name}</td><td class="num dim">—</td><td class="num">${pct(personalClue(perPerson),3)}</td><td class="num cy">${oneIn(personalClue(perPerson))}</td><td class="num dim">${pct(Math.min(1,expTeam/CLUE_DENOM),2)}</td></tr>
+    </tbody>
+    <tfoot><tr><td>Any purple</td><td class="num">${ws}</td><td class="num">${pct(totUnique/n,3)}</td><td class="num cy">${oneIn(totUnique/n)}</td><td class="num">${pct(totUnique,2)}</td></tr></tfoot>
+    </table></div>`;
+
+  // points breakdown by room
+  const f=(1+rl/250)*TEAM_SCALE[n];
+  let prows="";
+  let bsum=0;
+  for(const b of BOSSES){ const count=b.p2?downs:b.count; const sh=Math.floor(b.hp*f); const pts=Math.floor(sh*b.mult)*count; bsum+=pts;
+    prows+=`<tr class="uniqrow"><td class="it">${b.n}${b.p2?` ×${downs}`:(b.count>1?` ×${b.count}`:'')}</td><td class="num dim">${b.hp}</td><td class="num dim">${b.mult}×</td><td class="num">${fmtFull(Math.round(pts*K_BOSS))}</td></tr>`; }
+  prows+=`<tr class="uniqrow"><td class="it">Challenge rooms (Scabaras + Apmeken + Crondis)</td><td class="num dim">—</td><td class="num dim">even</td><td class="num">${fmtFull(FLAT_PER*n)}</td></tr>`;
+  prows+=`<tr class="uniqrow"><td class="it">🏅 MVP bonuses (top contributor each boss room)</td><td class="num dim">×4</td><td class="num dim">to MVP</td><td class="num">${fmtFull(MVP_PER*n)}</td></tr>`;
+  let ptable=`<div class="chart-card"><h3>Where the points come from</h3>
+    <div class="csub">Wiki HP-based engine: scaled HP = floor(baseHP · (1+RL/250) · teamScale[${n}]=${TEAM_SCALE[n]}), points = floor(HP·mult)·count, ×completeness ${K_BOSS} for paths/adds. MVP points concentrate on carries in actual raids; this even-split estimate gives each player ${fmtFull(MVP_PER)}.</div>
+    <table class="utable"><thead><tr><th>Source</th><th class="num">Base HP</th><th class="num">Mult</th><th class="num">Points</th></tr></thead>
+    <tbody>${prows}</tbody>
+    <tfoot><tr><td>Estimated team total</td><td></td><td></td><td class="num">${fmtFull(expTeam)}</td></tr></tfoot></table></div>`;
+
+  el.innerHTML=head+cards+utable+ptable;
+}
+
+/* ============================================================================
+   SINGLE RAID VIEW
+   ========================================================================== */
+function renderSingle(res,cfg){
+  document.getElementById("singleEmpty").style.display="none";
+  const el=document.getElementById("singleResult");
+  let v;
+  if(res.purple) v=`<div class="verdict purple">✦ PURPLE! ${res.players[res.purple.winnerIdx].name} received ${res.purple.item.name}</div>`;
+  else v=`<div class="verdict plain">No unique this raid</div>`;
+  let petBadge=res.pet?`<div class="verdict purple" style="color:#bfffd0;border-color:#3c9b55;box-shadow:0 0 18px rgba(60,155,85,.35)">🐤 PET! ${res.players[res.pet.winnerIdx].name} got Tumeken's guardian</div>`:"";
+
+  let head=`<div class="chest-head">${v}${petBadge}
+    <div class="stat" style="padding:9px 13px"><div class="k">Team points</div><div class="v" style="font-size:20px">${fmtFull(Math.round(res.teamPoints))}</div></div>
+    <div class="stat purple" style="padding:9px 13px"><div class="k">Purple chance</div><div class="v" style="font-size:20px">${pct(res.chance)}</div><div class="d">${oneIn(res.chance)}</div></div>
+  </div>`;
+
+  let pc=`<div class="players">`;
+  for(const p of res.players){
+    const share=res.teamPoints>0?p.points/res.teamPoints:0;
+    pc+=`<div class="pcard ${p.won?'win':''}">
+      <div class="ph"><span class="name ${p.i===0?'you':''}">${p.name}</span>
+        <span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
+        ${p.won?'<span class="tag win">✦ PURPLE</span>':''}
+        ${p.pet?'<span class="tag win" style="background:#3c9b55">🐤 PET</span>':''}
+        ${(!p.won&&!p.pet&&p.deaths>0)?`<span class="tag dead">☠ ${p.deaths}</span>`:''}
+        </span></div>
+      <div class="row"><span>Reward points</span><b>${fmtFull(Math.round(p.points))}</b></div>
+      ${p.mvps>0?`<div class="row"><span>MVP rooms</span><b style="color:var(--rs-yellow)">🏅 ${p.mvps}</b></div>`:''}
+      ${p.deaths>0?`<div class="row"><span>Lost to deaths</span><b style="color:var(--rs-red)">−${fmtFull(Math.round(p.basePts-p.points))}</b></div>`:''}
+      ${p.clues>0?`<div class="row"><span>Elite clues</span><b style="color:var(--rs-green)">${p.clues}</b></div>`:''}
+      <div class="row"><span>Contribution</span><b>${pct(share,1)}</b></div>
+      <div class="share"><div class="f" style="width:${(share*100).toFixed(1)}%"></div></div>
+    </div>`;
+  }
+  pc+=`</div>`;
+
+  let uniq="";
+  const specials=[];
+  if(res.purple) specials.push({file:res.purple.item.file,emoji:res.purple.item.emoji,nm:res.purple.item.name,cls:"uniq"});
+  if(res.pet) specials.push({file:PET.file,emoji:PET.emoji,nm:PET.name,cls:"pet"});
+  if(specials.length){ uniq=`<div class="loot-section"><h4>Unique &amp; pet</h4><div class="tiles">`;
+    for(const s of specials) uniq+=`<div class="tile ${s.cls}">${iconHTML(s.file,s.emoji)}<div class="nm">${s.nm}</div></div>`;
+    uniq+=`</div></div>`; }
+
+  // pooled common + clues
+  const pooled={}; let totClues=0;
+  for(const p of res.players){ totClues+=p.clues; for(const c of p.common){ if(!pooled[c.name])pooled[c.name]={...c,qty:0}; pooled[c.name].qty+=c.qty; } }
+  let common=`<div class="loot-section"><h4>Common loot — whole team (3 rolls each)</h4><div class="tiles">`;
+  if(totClues>0) common+=`<div class="tile"><div class="qty">${totClues}</div>${iconHTML(CLUE.file,CLUE.emoji)}<div class="nm">${CLUE.name}</div></div>`;
+  for(const c of Object.values(pooled).sort((a,b)=>b.qty-a.qty)) common+=`<div class="tile"><div class="qty">${fmt(c.qty)}</div>${iconHTML(c.file,c.emoji)}<div class="nm">${c.name}</div></div>`;
+  common+=`</div></div>`;
+
+  el.innerHTML=head+pc+uniq+common;
+}
+
+/* ============================================================================
+   BATCH VIEW
+   ========================================================================== */
+function renderBatch(acc,cfg){
+  document.getElementById("batchEmpty").style.display="none";
+  const el=document.getElementById("batchResult"); const n=acc.n,rl=cfg.rl;
+  const teamRate=acc.teamPurples/n,youRate=acc.youPurples/n,expChance=acc.chanceSum/n;
+  const meanYou=acc.youPtsSum/n,sdYou=Math.sqrt(Math.max(0,acc.youPtsSumSq/n-meanYou*meanYou));
+  const avgDeaths=acc.deathsTotal/n;
+
+  // ---- plain-language summary ----
+  let topItem="—",topN=0; for(const k in acc.youItemCounts) if(acc.youItemCounts[k]>topN){topN=acc.youItemCounts[k];topItem=k;}
+  const compTxt = cfg.teamSize===1 ? "solo" : `a ${cfg.teamSize}-man ${COMP[cfg.teamComp].label.toLowerCase()} team`;
+  const youEvery = acc.youPurples>0 ? Math.round(n/acc.youPurples) : null;
+  const luck = teamRate>expChance*1.05?'running hot ↑':teamRate<expChance*0.95?'running cold ↓':'right on the expected rate';
+  let narrative=`<div class="headline">
+    Across <b>${fmtFull(n)}</b> raids at <b>RL ${rl}</b> (${compTxt}, ${cfg.downs}-down, ${EFF[cfg.eff].l.split(' ')[0]}),
+    the team pulled <b class="pur">${fmtFull(acc.teamPurples)}</b> purples — about <b>one every ${teamRate>0?(1/teamRate).toFixed(1):'∞'} raids</b> (${luck}).
+    <b>${fmtFull(acc.youPurples)}</b> of them were yours${youEvery?` — one roughly every <b>${fmtFull(youEvery)}</b> raids`:''}, most often
+    <b class="pur">${topItem}</b>${topN?` (×${fmtFull(topN)})`:''}.
+    You also took home <b>${fmtFull(acc.youPets)}</b> pet${acc.youPets===1?'':'s'}, <b>${fmtFull(acc.youClues)}</b> elite clue${acc.youClues===1?'':'s'}
+    and were room MVP <b>${(acc.youMVPs/n).toFixed(1)}</b> times per raid.
+    Your worst dry streak ran <b>${fmtFull(acc.youMaxDry)}</b> raids without a purple.
+  </div>`;
+
+  let cards=`<div class="stat-grid">
+    <div class="stat purple"><div class="k">Team purples</div><div class="v">${fmtFull(acc.teamPurples)}</div><div class="d">${oneIn(teamRate)} · obs ${pct(teamRate)}</div></div>
+    <div class="stat purple"><div class="k">Your purples</div><div class="v">${fmtFull(acc.youPurples)}</div><div class="d">${oneIn(youRate)}</div></div>
+    <div class="stat cyan"><div class="k">Expected / raid</div><div class="v" style="font-size:22px">${pct(expChance)}</div><div class="d ${Math.abs(teamRate-expChance)<expChance*0.08?'good':''}">theory ${oneIn(expChance)}</div></div>
+    <div class="stat"><div class="k">Avg your points</div><div class="v" style="font-size:22px">${fmt(meanYou)}</div><div class="d">σ ${fmt(sdYou)}</div></div>
+    <div class="stat cyan"><div class="k">Pets (you / team)</div><div class="v" style="font-size:22px">${acc.youPets} / ${acc.teamPets}</div><div class="d">${oneIn(acc.teamPets/n)} team</div></div>
+    <div class="stat green"><div class="k">Elite clues (you)</div><div class="v" style="font-size:22px">${fmtFull(acc.youClues)}</div><div class="d">${(acc.youClues/n).toFixed(2)}/raid</div></div>
+    <div class="stat"><div class="k">🏅 MVPs (you)</div><div class="v" style="font-size:22px">${fmtFull(acc.youMVPs)}</div><div class="d">${(acc.youMVPs/n).toFixed(2)}/raid of ${MVP_ROOMS.length}</div></div>
+    <div class="stat red"><div class="k">Avg deaths/raid</div><div class="v" style="font-size:22px">${avgDeaths.toFixed(2)}</div><div class="d">${pct(acc.deathRaids/n,1)} of raids</div></div>
+    <div class="stat"><div class="k">Longest dry streak</div><div class="v" style="font-size:22px">${fmtFull(acc.youMaxDry)}</div><div class="d">raids w/o your purple</div></div>
+  </div>`;
+
+  const weights=purpleWeights(rl),totalW=weights.reduce((a,b)=>a+b.weight,0);
+  let maxCount=1; for(const k in acc.itemCounts) maxCount=Math.max(maxCount,acc.itemCounts[k]);
+  let rows="";
+  for(const p of weights){ const got=acc.itemCounts[p.name],youGot=acc.youItemCounts[p.name];
+    const obs=acc.teamPurples>0?got/acc.teamPurples:0, exp=p.weight/totalW*(rl<p.level?1/50:1);
+    rows+=`<tr class="uniqrow"><td class="it pur">${miniIconHTML(p.file,p.emoji)} ${p.name}</td><td class="num dim">${p.weight}</td><td class="num">${fmtFull(got)}</td><td class="num cy">${fmtFull(youGot)}</td><td class="num">${pct(obs,1)}</td><td class="num dim">${pct(p.weight/totalW,1)}</td><td class="barcell"><div class="minibar"><div class="f" style="width:${(got/maxCount*100).toFixed(1)}%"></div></div></td></tr>`; }
+  let utable=`<div class="chart-card"><h3>Unique item distribution</h3>
+    <div class="csub">Across ${fmtFull(acc.teamPurples)} team purples · expected ratios from RL ${rl} weights (total ${totalW})</div>
+    <table class="utable"><thead><tr><th>Item</th><th class="num">Weight</th><th class="num">Team</th><th class="num">You</th><th class="num">Obs</th><th class="num">Exp</th><th class="barcell">Share</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+
+  let charts=`<div class="chart-card"><h3>Your reward-point distribution</h3>
+    <div class="csub">${fmtFull(n)} raids · mean ${fmtFull(Math.round(meanYou))} · range ${fmtFull(Math.round(acc.youPtsMin))}–${fmtFull(Math.round(acc.youPtsMax))}</div>
+    <canvas id="histCanvas" height="170"></canvas></div>`;
+  if(cfg.teamSize>1) charts+=`<div class="chart-card"><h3>Purples by party slot</h3><div class="csub">Where the unique landed — driven by contribution share</div><canvas id="ppCanvas" height="${30+cfg.teamSize*30}"></canvas></div>`;
+
+  let tert="";
+  if(cfg.tertThread||cfg.tertJewel){ tert=`<div class="chart-card"><h3>Tertiary drops (you)</h3><div class="csub">With bad-luck mitigation · ${fmtFull(n)} completions</div><div class="tiles">`;
+    if(cfg.tertThread) tert+=`<div class="tile"><div class="qty">${fmtFull(acc.threadGot)}</div>${iconHTML("Thread_of_elidinis.png","🧵")}<div class="nm">Thread of Elidinis</div></div>`;
+    if(cfg.tertJewel) for(const j of JEWELS) tert+=`<div class="tile"><div class="qty">${fmtFull(acc.jewelCounts[j.name])}</div>${iconHTML(j.file,j.emoji)}<div class="nm">${j.name}</div></div>`;
+    tert+=`</div></div>`; }
+
+  const cArr=Object.entries(acc.commonTotals).map(([name,qty])=>{const m=COMMON.find(c=>c.name===name);return{name,qty,file:m.file,emoji:m.emoji};}).sort((a,b)=>b.qty-a.qty);
+  let common=`<div class="chart-card"><h3>Common loot collected (you)</h3><div class="csub">Pooled across ${fmtFull(n)} raids · 3 rolls/raid</div><div class="tiles">`;
+  for(const c of cArr) common+=`<div class="tile"><div class="qty">${fmt(c.qty)}</div>${iconHTML(c.file,c.emoji)}<div class="nm">${c.name}</div></div>`;
+  common+=`</div></div>`;
+
+  el.innerHTML=narrative+cards+utable+charts+tert+common;
+  drawHistogram(document.getElementById("histCanvas"),acc);
+  if(cfg.teamSize>1) drawPerPlayer(document.getElementById("ppCanvas"),acc,cfg);
+}
+
+/* ---- canvas charts ---- */
+function setupCanvas(cv){const dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=cv.height;cv.width=w*dpr;cv.height=h*dpr;const ctx=cv.getContext("2d");ctx.scale(dpr,dpr);return{ctx,w,h};}
+function drawHistogram(cv,acc){
+  if(!cv)return; const {ctx,w,h}=setupCanvas(cv); const bins=acc.youPtsHist.length,hist=acc.youPtsHist,max=acc.histMax||1,hi=acc.histHi;
+  const padL=8,padR=8,padT=10,padB=22,bw=(w-padL-padR)/bins;
+  ctx.strokeStyle="rgba(110,97,73,.25)";ctx.lineWidth=1;
+  for(let g=0;g<=4;g++){const y=padT+(h-padT-padB)*g/4;ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(w-padR,y);ctx.stroke();}
+  for(let i=0;i<bins;i++){const bh=(hist[i]/max)*(h-padT-padB),x=padL+i*bw,y=h-padB-bh;const g=ctx.createLinearGradient(0,y,0,h-padB);g.addColorStop(0,"#ffd34e");g.addColorStop(1,"#c8941f");ctx.fillStyle=g;ctx.fillRect(x+.5,y,Math.max(.5,bw-1),bh);}
+  ctx.fillStyle="#9a8a64";ctx.font="11px 'RuneScapeSmall',monospace";ctx.textAlign="center";
+  for(let g=0;g<=4;g++)ctx.fillText(fmt(Math.round(hi*g/4)),padL+(w-padL-padR)*g/4,h-6);
+  ctx.textAlign="left";
+}
+function drawPerPlayer(cv,acc,cfg){
+  if(!cv)return; const {ctx,w,h}=setupCanvas(cv); const nn=cfg.teamSize,vals=acc.perPlayerPurples,max=Math.max(1,...vals);
+  const padL=58,padR=48,padT=8,padB=8,rowH=(h-padT-padB)/nn;
+  for(let i=0;i<nn;i++){const y=padT+i*rowH+4,bh=rowH-8,bw=(vals[i]/max)*(w-padL-padR);
+    ctx.fillStyle=i===0?"#ffd34e":"#9a8a64";ctx.font="13px 'RuneScape',monospace";ctx.textAlign="right";ctx.fillText(i===0?"You":("P"+(i+1)),padL-8,y+bh/2+5);
+    const g=ctx.createLinearGradient(padL,0,w-padR,0);g.addColorStop(0,"#9b30e0");g.addColorStop(1,"#d264ff");ctx.fillStyle=g;ctx.fillRect(padL,y,Math.max(2,bw),bh);
+    ctx.fillStyle="#eecaff";ctx.textAlign="left";ctx.fillText(fmtFull(vals[i]),padL+Math.max(2,bw)+8,y+bh/2+5);}
+  ctx.textAlign="left";
+}
+
+/* ============================================================================
+   RUN
+   ========================================================================== */
+let running=false;
+function runOne(){ const cfg=readCfg(); renderSingle(simulateRaid(cfg,getRng()),cfg); switchView("single"); }
+function runBatch(){
+  if(running)return;
+  const cfg=readCfg(); const n=nRaidsFromSlider(state.nRaidsExp);
+  if(n<=1){ runOne(); return; }
+  running=true;
+  const runBtn=document.getElementById("runBtn"); runBtn.disabled=true; runBtn.textContent="Running…";
+  const prog=document.getElementById("progress"),bar=document.getElementById("progressBar"); prog.classList.add("show");
+  const rng=getRng(), acc=newBatchAcc(cfg);
+  const expTeam=expectedTeamPoints(cfg.rl,cfg.teamSize,cfg.downs,EFF[cfg.eff].m);
+  const hi=Math.ceil(Math.max(8000,(expTeam/cfg.teamSize)*(cfg.teamComp==="carry"?2.6:cfg.teamComp==="pug"?2.4:1.7))/1000)*1000;
+  acc.histHi=hi; const env={rng,binW:hi/48};
+  switchView("batch");
+  let done=0; const chunk=Math.max(500,Math.floor(n/200));
+  function step(){
+    const end=Math.min(done+chunk,n);
+    for(;done<end;done++) accumulate(acc,cfg,env,simulateRaid(cfg,rng));
+    bar.style.width=(done/n*100).toFixed(1)+"%";
+    if(done<n) requestAnimationFrame(step);
+    else{ renderBatch(acc,cfg); running=false; runBtn.disabled=false; runBtn.textContent="▶ Simulate"; setTimeout(()=>prog.classList.remove("show"),400); toast(`Simulated ${fmtFull(n)} raids`); }
+  }
+  requestAnimationFrame(step);
+}
+function switchView(v){document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("active",b.dataset.view===v));document.querySelectorAll(".view").forEach(el=>el.classList.toggle("active",el.id==="view-"+v));}
+let toastT; function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("show"),2200);}
+
+/* ============================================================================
+   MECHANICS DOC
+   ========================================================================== */
+function buildMechanicsDoc(){
+  document.getElementById("mechanicsDoc").innerHTML=`
+  <h3>The purple roll</h3>
+  <p>Each raid makes one unique roll for the team. You earn a 1% chance for every <code>10,500 − 20·adjRL</code> team reward points; capped at <b>55%</b>. There is <b>no point cap</b> — a high-RL 8-man can exceed 40%.</p>
+  <div class="formula">P(purple) = min( 0.55 , teamPoints / (100·(10500 − 20·adjRL)) )
+
+adjRL = RL                          (RL ≤ 310)
+      = 310 + floor((RL−310)/3)     (310 < RL ≤ 430)
+      = 350 + floor((RL−430)/6)     (RL > 430)</div>
+  <p>The whole team's points decide <i>whether</i> a purple drops; <i>who</i> gets it is proportional to individual contribution (so an even-split 8-man gives each person 1/8 of the team chance — matching the Wiki's per-person figures).</p>
+
+  <h3>Which unique?</h3>
+  <p>When a purple drops, the item is weighted (base total 240): Fang 70, Lightbearer 70, Ward 30, Masori mask/body/chaps 20 each, Tumeken's shadow 10. At RL 350/400/450/500 the Fang &amp; Lightbearer weights drop, raising everyone else (RL 400 → shadow 10/190 = <b>1/19</b>). Each item also has a level requirement (shadow/Masori/ward 150, fang/lightbearer 50); below it the item's rate is divided by 50.</p>
+
+  <h3>Pet — Tumeken's guardian</h3>
+  <div class="formula">P(pet, team) = teamPoints / (100·(350000 − 700·adjRLpet))
+adjRLpet = RL (≤400) ; 400+floor((RL−400)/3) (≤550) ; capped 450</div>
+  <p>The pet roll is <b>fully independent</b> of the purple roll: in a single raid a player can receive <i>both</i> a unique and the pet, the pet alone with no unique, or neither. The two are rolled and assigned separately.</p>
+
+  <h3>Elite clue scroll</h3>
+  <div class="formula">P(clue, per person) = personalPoints / 200000</div>
+
+  <h3>Deaths</h3>
+  <p>Each death removes <b>max(20% of current points, 1,000)</b>. Modeled as Poisson with your chosen mean.</p>
+
+  <h3>The points engine</h3>
+  <p>Reproduced from the Wiki loot module. Every boss/NPC contributes points from its scaled HP:</p>
+  <div class="formula">scaled_hp = floor( base_hp · (1 + RL/250) · teamScale[n] )
+points    = floor( scaled_hp · multiplier ) · count</div>
+  <p>Team-size scale: <code>1.0 / 1.9 / 2.8 / 3.4 / 4.0 / 4.6 / 5.2 / 5.8</code>. Bosses: Akkha 480×1.0, Akkha's shadows 70×1.0 ×4, Ba-Ba 380×2.0, Zebak 580×1.5, Kephri 130×1.0, P1 Obelisk 260×1.5, <b>P2 Wardens 140×2.0 ×(downs)</b>, P3 Warden 880×2.5. Challenge rooms add a flat 3,850 per team member.</p>
+  <p>A <b>completeness factor of ${K_BOSS}</b> on the boss points accounts for path-level HP scaling and minor adds (scarabs, baboons) not individually modeled; it is calibrated so RL 450 / 8-man / 2-down = <b>146,294</b> team points, exactly the Wiki calculator's value. The <b>downs</b> control is the literal P2 Warden cycle count — 3-down adds one more 140-HP pool (≈ +3% points, as the Wiki notes); 8-down is the theoretical max.</p>
+
+  <h3>MVP bonuses</h3>
+  <p>Each of the four boss rooms (Akkha, Ba-Ba, Kephri, Zebak) awards an <b>MVP bonus</b> to its top contributor — a pool of <code>2,700 × team&nbsp;size</code> points split across the four rooms. The Wiki's per-person estimate assumes this splits evenly (2,700 each), but in a real raid MVPs <b>concentrate on carries</b>, raising their individual purple odds. The Monte-Carlo awards each room's MVP to the player with the best (skill × random) roll that room, while keeping the team total identical — so the team-wide chance is unchanged but <i>who</i> gets the purple shifts toward the MVP earner.</p>
+
+  <h3>Team composition &amp; player skill</h3>
+  <p>Each player is given a <b>persistent skill</b> for the raid, drawn from the chosen composition: <b>Coordinated</b> (everyone similar), <b>Mixed</b> (pros &amp; noobs), <b>PUG mass</b> (random strangers, wide spread), <b>You carry</b>, or <b>You leech</b>. That single skill value drives <i>both</i> a player's point contribution <i>and</i> their MVP weight in every room — so a strong player tends to MVP several rooms rather than winning each as an independent coin-flip. This is why a carry sees both more MVPs and a larger slice of the team's purples. Solo raids ignore composition (you are always MVP of all four rooms).</p>
+
+  <h3>Mutually-exclusive invocations</h3>
+  <p>The builder mirrors the in-game rules: the <b>Attempts</b>, <b>Time limit</b>, <b>Helpful spirit</b>, <b>Path tier</b> (Pathseeker/finder/master) and <b>Overclocked</b> tiers each allow only one selection — picking a new one clears the others, exactly as the game does (e.g. choosing <i>No Help Needed</i> removes <i>Need Some Help?</i>). The Quick-slider presets and the invocation presets are common real-world setups verified to land on their stated raid level.</p>
+  <p style="color:var(--rs-faint)">Point totals are <i>estimates</i> (the Wiki says the same): real totals vary with shield regen, kill speed, Walk-the-Path order, trap failures, deaths and RuneScript integer truncation. The probability formulas, however, are exact — feed them your true point total for an exact chance.</p>
+
+  <h3>Reproducibility</h3>
+  <p>All randomness uses one seeded PRNG (mulberry32). Type a number or word in <span class="kbd">Seed</span> to reproduce a run exactly; blank = fresh seed.</p>
+
+  <p style="margin-top:18px;color:var(--rs-faint)">Sources: OSRS Wiki — <a href="https://oldschool.runescape.wiki/w/Tombs_of_Amascut" target="_blank" rel="noopener">Tombs of Amascut</a>, <a href="https://oldschool.runescape.wiki/w/Chest_(Tombs_of_Amascut)" target="_blank" rel="noopener">Chest</a>, <a href="https://oldschool.runescape.wiki/w/Calculator:Tombs_of_Amascut_loot" target="_blank" rel="noopener">loot calculator</a>, <a href="https://oldschool.runescape.wiki/w/Invocations" target="_blank" rel="noopener">Invocations</a>.</p>`;
+}
+
+/* ============================================================================
+   INIT
+   ========================================================================== */
+function init(){
+  buildTeamPips(); buildDownsPips(); buildInvocations(); buildInvPresets(); wireControls(); buildMechanicsDoc();
+  refreshDerived(); renderExpected();
+  document.getElementById("nRaidsLab").textContent=fmtFull(nRaidsFromSlider(state.nRaidsExp));
+  document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>switchView(b.dataset.view));
+  document.querySelectorAll(".panel.collapsible > h2").forEach(h=>h.onclick=()=>h.parentElement.classList.toggle("collapsed"));
+  document.getElementById("runOneBtn").onclick=runOne;
+  document.getElementById("runBtn").onclick=runBatch;
+  document.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.target.matches("input,select,textarea,button"))runBatch();});
+}
+document.addEventListener("DOMContentLoaded",init);
+</script>
+</body>
+</html>
