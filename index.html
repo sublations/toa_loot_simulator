@@ -976,13 +976,14 @@ function simulateRaid(cfg,rng){
     players[w.i].pet=true; pet={winnerIdx:w.i};
   }
 
-  // CLUE - independent per player
+  // CLUE - independent per player (a purple does not block this)
   for(const p of players){ if(rng()<personalClue(p.points)) p.clues++; }
 
-  // COMMON - 3 rolls per player
+  // COMMON - 3 rolls per player. A purple REPLACES the common supply drop, so a
+  // player who got a unique rolls no common loot that raid (pet stays separate).
   const mult=rl>=300?(1.15+0.01*(rl-300)/5):1;
   for(const p of players){
-    if(p.points<=0) continue;
+    if(p.points<=0 || p.won) continue;
     for(let k=0;k<3;k++){
       const it=COMMON[Math.floor(rng()*COMMON.length)];
       p.common.push({name:it.name,qty:Math.max(1,Math.round((p.points/it.div)*mult)),file:it.file,emoji:it.emoji});
@@ -1007,6 +1008,8 @@ function newBatchAcc(cfg){
     threadKc:0,threadGot:0,threadObtained:false,
     jewelKc:0,jewelCounts:Object.fromEntries(JEWELS.map(j=>[j.name,0])),jewelSet:new Set(),
     commonTotals:{},
+    // per-player accumulated loot across the whole batch
+    pp:Array.from({length:cfg.teamSize},()=>({pts:0,purples:0,items:{},pets:0,clues:0,deaths:0,mvps:0,common:{}})),
   };
 }
 function accumulate(acc,cfg,env,res){
@@ -1026,6 +1029,14 @@ function accumulate(acc,cfg,env,res){
   let rd=0; for(const p of res.players) rd+=p.deaths;
   acc.deathsTotal+=rd; if(rd>0)acc.deathRaids++;
   for(const c of you.common) acc.commonTotals[c.name]=(acc.commonTotals[c.name]||0)+c.qty;
+  // per-player accumulation (each player's own loot over the batch)
+  for(let i=0;i<res.players.length;i++){
+    const p=res.players[i], a=acc.pp[i];
+    a.pts+=p.points; a.clues+=p.clues; a.deaths+=p.deaths; a.mvps+=p.mvps;
+    if(p.won){ a.purples++; a.items[p.item.name]=(a.items[p.item.name]||0)+1; }
+    if(p.pet) a.pets++;
+    for(const c of p.common) a.common[c.name]=(a.common[c.name]||0)+c.qty;
+  }
   // tertiary for "you" w/ bad-luck mitigation
   if(cfg.tertThread){
     acc.threadKc++;
@@ -1313,6 +1324,76 @@ function renderSingle(res,cfg,opts){
   el.innerHTML=note+head+pc+teamRoll;
 }
 
+/* name -> icon metadata, for rendering accumulated loot by item name */
+const ITEM_META={};
+for(const it of COMMON) ITEM_META[it.name]={file:it.file,emoji:it.emoji};
+for(const it of PURPLE_BASE) ITEM_META[it.name]={file:it.file,emoji:it.emoji};
+ITEM_META[CLUE.name]={file:CLUE.file,emoji:CLUE.emoji};
+ITEM_META[PET.name]={file:PET.file,emoji:PET.emoji};
+function lootTile(name,qty,cls){const m=ITEM_META[name]||{file:"",emoji:"❔"};
+  return `<div class="tile ${cls||''}"><div class="qty">${fmt(qty)}</div>${iconHTML(m.file,m.emoji)}<div class="nm">${name}</div></div>`;}
+
+/* LOOT BREAKDOWN over a whole batch: each player's accumulated haul. */
+function renderLootBatch(acc,cfg){
+  document.getElementById("singleEmpty").style.display="none";
+  const el=document.getElementById("singleResult");
+  const n=acc.n, ts=cfg.teamSize;
+
+  // team totals across all players
+  let teamPurp=0,teamPet=0,teamClue=0; const teamItems={},teamCommon={};
+  for(const a of acc.pp){
+    teamPurp+=a.purples; teamPet+=a.pets; teamClue+=a.clues;
+    for(const k in a.items) teamItems[k]=(teamItems[k]||0)+a.items[k];
+    for(const k in a.common) teamCommon[k]=(teamCommon[k]||0)+a.common[k];
+  }
+
+  const note=`<div class="sample-note">Loot accumulated over <b>${fmtFull(n)}</b> raids, split by player (${ts===1?'solo':ts+'-man '+COMP[cfg.teamComp].label.toLowerCase()}). A purple replaces that player's supply drop for the raid; pets and clues are separate rolls.</div>`;
+
+  const head=`<div class="chest-head">
+    <div class="stat purple" style="padding:9px 13px"><div class="k">Team purples</div><div class="v" style="font-size:20px">${fmtFull(teamPurp)}</div><div class="d">${(teamPurp/n).toFixed(3)}/raid</div></div>
+    <div class="stat cyan" style="padding:9px 13px"><div class="k">Team pets</div><div class="v" style="font-size:20px">${fmtFull(teamPet)}</div><div class="d">${oneIn(teamPet/n)}</div></div>
+    <div class="stat green" style="padding:9px 13px"><div class="k">Team clues</div><div class="v" style="font-size:20px">${fmtFull(teamClue)}</div><div class="d">${(teamClue/n).toFixed(2)}/raid</div></div>
+  </div>`;
+
+  let pc=`<div class="players">`;
+  for(let i=0;i<ts;i++){
+    const a=acc.pp[i], name=i===0?"You":("Player "+(i+1));
+    // unique tiles (counts per item), then accumulated common loot
+    let tiles="";
+    const itemEntries=Object.entries(a.items).sort((x,y)=>y[1]-x[1]);
+    for(const [nm,c] of itemEntries) tiles+=lootTile(nm,c,"uniq");
+    if(a.pets>0) tiles+=lootTile(PET.name,a.pets,"pet");
+    if(a.clues>0) tiles+=lootTile(CLUE.name,a.clues);
+    for(const [nm,q] of Object.entries(a.common).sort((x,y)=>y[1]-x[1])) tiles+=lootTile(nm,q);
+
+    pc+=`<div class="pcard ${a.purples>0?'win':''}">
+      <div class="ph"><span class="name ${i===0?'you':''}">${name}</span>
+        <span class="tags">
+        ${a.purples>0?`<span class="tag win">✦ ${a.purples}</span>`:''}
+        ${a.pets>0?`<span class="tag petc">🐤 ${a.pets}</span>`:''}
+        ${a.mvps>0?`<span class="tag mvp">🏅 ${fmtFull(a.mvps)}</span>`:''}
+        </span></div>
+      <div class="row"><span>Purples</span><b style="color:var(--rs-purple)">${fmtFull(a.purples)}</b></div>
+      <div class="row"><span>Avg points / raid</span><b>${fmtFull(Math.round(a.pts/n))}</b></div>
+      <div class="row"><span>Pets · clues</span><b>${fmtFull(a.pets)} · ${fmtFull(a.clues)}</b></div>
+      <div class="row"><span>MVPs · deaths</span><b>${fmtFull(a.mvps)} · ${fmtFull(a.deaths)}</b></div>
+      <div class="ploot-h">${i===0?'Your':name+"'s"} total haul</div>
+      <div class="ploot">${tiles||'<span style="color:var(--rs-faint);font-size:12px;padding:4px">no loot</span>'}</div>
+    </div>`;
+  }
+  pc+=`</div>`;
+
+  // whole-team roll-up
+  let t="";
+  for(const [nm,c] of Object.entries(teamItems).sort((x,y)=>y[1]-x[1])) t+=lootTile(nm,c,"uniq");
+  if(teamPet>0) t+=lootTile(PET.name,teamPet,"pet");
+  if(teamClue>0) t+=lootTile(CLUE.name,teamClue);
+  for(const [nm,q] of Object.entries(teamCommon).sort((x,y)=>y[1]-x[1])) t+=lootTile(nm,q);
+  const teamRoll=ts>1?`<div class="loot-section"><h4>Whole-team total (${fmtFull(n)} raids)</h4><div class="tiles">${t}</div></div>`:"";
+
+  el.innerHTML=note+head+pc+teamRoll;
+}
+
 /* ============================================================================
    BATCH VIEW
    ========================================================================== */
@@ -1428,8 +1509,7 @@ function runBatch(){
     if(done<n) requestAnimationFrame(step);
     else{
       renderBatch(acc,cfg);
-      // drop one example raid into the Loot breakdown so that tab isn't empty after a batch
-      renderSingle(simulateRaid(cfg,rng),cfg,{note:`Example raid drawn from this batch of <b>${fmtFull(n)}</b>. Hit <b>Run 1 raid</b> for a fresh single roll.`});
+      renderLootBatch(acc,cfg);   // Loot breakdown = each player's accumulated haul over the batch
       running=false; runBtn.disabled=false; runBtn.textContent="▶ Simulate"; setTimeout(()=>prog.classList.remove("show"),400); toast(`Simulated ${fmtFull(n)} raids`);
     }
   }
@@ -1465,6 +1545,9 @@ adjRLpet = RL (≤400) ; 400+floor((RL−400)/3) (≤550) ; capped at 450</div>
 
   <h3>Elite clue scroll</h3>
   <div class="formula">P(clue, per person) = personalPoints / 200000</div>
+
+  <h3>Common loot</h3>
+  <p>If a player does not get a unique, they get the common supply drop: three rolls on the common table, each giving <code>points / divisor</code> of an item (times a small raid-level bonus above RL 300). <b>A purple replaces this drop</b>, so the player who pulled the unique rolls no supplies that raid. The pet and the clue are separate rolls and are unaffected. In the Loot breakdown after a batch, each player's tab shows their own haul added up over every raid.</p>
 
   <h3>Deaths</h3>
   <p>Every death wipes <b>max(20% of your current points, 1,000)</b>. Deaths are rolled as a Poisson process around the average you set.</p>
